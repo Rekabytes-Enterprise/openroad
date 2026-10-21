@@ -2,7 +2,8 @@ import type { Point } from '../map/types';
 
 export type Fix = { point: Point; accuracy: number; timestamp: number };
 export type LocationState =
-  | { status: 'idle' | 'requesting' | 'paused' }
+  | { status: 'idle' | 'paused' }
+  | { status: 'requesting'; message: string }
   | { status: 'ready'; fix: Fix; stale: boolean }
   | { status: 'error'; message: string };
 
@@ -46,7 +47,7 @@ export class LocationController {
     }
     this.source = source;
     this.enabled = true;
-    this.update({ status: 'requesting' });
+    this.update({ status: 'requesting', message: 'Waiting for your device to report a location.' });
     const generation = ++this.generation;
     try {
       this.watcher = source.watchPosition(position => {
@@ -59,14 +60,21 @@ export class LocationController {
         }, Math.max(0, 15000 - (Date.now() - fix.timestamp)));
       }, error => {
         if (generation !== this.generation) return;
+        if (error.code !== 1) {
+          // Timeout and unavailable are transient; the browser watch can recover.
+          if (this.state.status === 'ready') {
+            this.update({ ...this.state, stale: true });
+          } else {
+            this.update({ status: 'requesting', message: error.code === 3
+              ? 'Your device has not returned a location yet. Still listening. Check device Location Services, or stop and retry.'
+              : 'Your device cannot determine its location right now. Still listening. Check device Location Services.' });
+          }
+          return;
+        }
         this.clear();
         this.enabled = false;
-        const message = error.code === 1
-          ? 'Location access is blocked. Allow it in your browser settings, or choose a place on the map.'
-          : error.code === 3 ? 'Your location took too long to arrive. Try again outdoors.'
-          : 'Your location is unavailable. Try again, or choose a place on the map.';
-        this.update({ status: 'error', message });
-      }, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+        this.update({ status: 'error', message: 'Location access is blocked. Allow it in your browser settings, or choose a place on the map.' });
+      }, { enableHighAccuracy: false, timeout: 30000, maximumAge: 10000 });
     } catch {
       this.clear();
       this.enabled = false;

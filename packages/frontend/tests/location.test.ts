@@ -46,6 +46,24 @@ describe('location lifecycle', () => {
     expect(controller.getSnapshot().status).toBe('idle');
   });
 
+  it.each([2, 3])('keeps watching after transient error %s and accepts a later fix', code => {
+    const controller = new LocationController(() => ({ watchPosition, clearWatch }));
+    controller.enable();
+    failure?.({ code, message: 'Transient', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
+    expect(clearWatch).not.toHaveBeenCalled();
+    expect(controller.getSnapshot()).toMatchObject({ status: 'requesting', message: expect.stringContaining('Still listening') });
+    controller.enable();
+    expect(watchPosition).toHaveBeenCalledTimes(1);
+    success({ timestamp: Date.now(), coords: { latitude: 3.15, longitude: 101.71, accuracy: 30, altitude: null, altitudeAccuracy: null, heading: null, speed: null, toJSON: () => ({}) }, toJSON: () => ({}) });
+    expect(controller.getSnapshot()).toMatchObject({ status: 'ready', stale: false });
+    failure?.({ code, message: 'Transient', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
+    expect(controller.getSnapshot()).toMatchObject({ status: 'ready', stale: true, fix: { accuracy: 30 } });
+    controller.stop();
+    expect(clearWatch).toHaveBeenCalledWith(7);
+    failure?.({ code, message: 'Late error', PERMISSION_DENIED: 1, POSITION_UNAVAILABLE: 2, TIMEOUT: 3 });
+    expect(controller.getSnapshot().status).toBe('idle');
+  });
+
   it('clears the watch after denial and does not resume it', () => {
     const controller = new LocationController(() => ({ watchPosition, clearWatch }));
     controller.enable();

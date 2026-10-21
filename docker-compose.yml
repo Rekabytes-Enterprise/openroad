@@ -1,0 +1,26 @@
+services:
+  backend:
+    image: openroad-backend:${OPENROAD_VERSION:-0.1.0}
+    build:
+      context: .
+      dockerfile: packages/backend/Dockerfile
+    ports:
+      - "127.0.0.1:4205:4205"
+    environment:
+      PORT: "4205"
+      OSRM_URL: ${OSRM_URL:-https://router.project-osrm.org}
+    restart: unless-stopped
+  frontend:
+    image: openroad-frontend:${OPENROAD_VERSION:-0.1.0}
+    build:
+      context: .
+      dockerfile: packages/frontend/Dockerfile
+    ports:
+      - "127.0.0.1:4206:4206"
+    environment:
+      PORT: "4206"
+      BACKEND_URL: http://backend:4205
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped

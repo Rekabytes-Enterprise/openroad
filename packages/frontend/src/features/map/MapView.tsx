@@ -3,11 +3,13 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import L from 'leaflet';
 import type { Destination, MapConfig, Point } from './types';
+import type { DrivingRoute } from '../routing/route';
 import type { Fix } from '../location/location';
 
 export type MapHandle = { zoom: (delta: number) => void; center: (point: Point) => void; getCenter: () => Point | undefined; retry: () => void };
 type Props = {
   config: MapConfig;
+  route: DrivingRoute | null;
   destination: Destination | null;
   fix: Fix | null;
   follow: boolean;
@@ -17,7 +19,7 @@ type Props = {
 
 const pin = L.divIcon({ className: 'destination-marker', html: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>', iconSize: [42, 48], iconAnchor: [21, 48] });
 
-export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, destination, fix, follow, onSelect, onDrag }, ref) {
+export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, route, destination, fix, follow, onSelect, onDrag }, ref) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const tiles = useRef<L.TileLayer | null>(null);
@@ -71,6 +73,16 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, d
     locationMarker.current = L.circleMarker(center, { radius: 8, fillColor: '#3666ef', color: '#ffffff', weight: 3, fillOpacity: 1, interactive: false }).addTo(instance);
     if (follow) instance.panTo(center, { animate: false });
   }, [fix, follow]);
+
+  useEffect(() => {
+    const instance = map.current;
+    if (!instance || !route) return;
+    const line = L.polyline(route.points.map(point => [point.lat, point.lng]), { color: '#3056ee', weight: 6, opacity: 0.85, interactive: false }).addTo(instance);
+    const first = route.points[0];
+    const start = L.circleMarker([first.lat, first.lng], { radius: 7, color: '#fff', weight: 3, fillColor: '#16244d', fillOpacity: 1, interactive: false }).addTo(instance);
+    instance.fitBounds(line.getBounds(), { paddingTopLeft: [45, 70], paddingBottomRight: [45, 180], maxZoom: 16 });
+    return () => { line.remove(); start.remove(); };
+  }, [route, config]);
 
   return <><div className="map-canvas" ref={container} aria-label="Interactive map. Use the arrow keys to pan and the Select map center button to choose a destination." />{tileError && <div className="tile-error" role="status">Some map tiles could not load. <button onClick={() => { setTileError(false); tiles.current?.redraw(); }}>Retry</button></div>}</>;
 });

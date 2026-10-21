@@ -1,0 +1,8 @@
+packages:
+  - packages/frontend
+  - packages/backend
+enableGlobalVirtualStore: false
+shamefullyHoist: true
+allowBuilds:
+  esbuild: true
+  sharp: true

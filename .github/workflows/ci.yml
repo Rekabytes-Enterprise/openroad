@@ -1,15 +1,24 @@
-name: Check
-on: [push, pull_request]
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+permissions:
+  contents: read
 jobs:
-  app:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm test
-      - run: npm run build
-      - run: npm run typecheck
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm release:check && pnpm test && pnpm typecheck && pnpm build
+      - run: docker compose up -d --build --wait
+      - run: pnpm test:smoke
+      - if: always()
+        run: docker compose down

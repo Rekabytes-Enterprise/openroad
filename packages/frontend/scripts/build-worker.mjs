@@ -6,13 +6,14 @@ async function files(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
   return (await Promise.all(entries.map(entry => entry.isDirectory() ? files(join(directory, entry.name)) : join(directory, entry.name)))).flat();
 }
-const paths = (await files('out')).filter(path => !path.endsWith('sw.js') && /\.(js|css|html|png|svg|webmanifest|json)$/.test(path));
+const publicPaths = (await files('public')).filter(path => !path.endsWith('sw.js'));
+const staticPaths = await files('.next/static');
 const digest = createHash('sha256');
-for (const path of paths.sort()) digest.update(await readFile(path));
+for (const path of [...publicPaths, ...staticPaths].sort()) digest.update(await readFile(path));
+digest.update(await readFile('.next/server/app/index.html'));
 const cacheName = `openroad-${digest.digest('hex').slice(0, 12)}`;
-const urls = paths.map(path => path.replace(/^out/, '')).filter(path => path !== '/index.html');
-urls.push('/');
-await writeFile('out/sw.js', `const CACHE = ${JSON.stringify(cacheName)};
+const urls = [...publicPaths.map(path => path.replace(/^public/, '')), ...staticPaths.map(path => path.replace(/^\.next/, '/_next')), '/'];
+await writeFile('public/sw.js', `const CACHE = ${JSON.stringify(cacheName)};
 const ASSETS = ${JSON.stringify(urls)};
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));

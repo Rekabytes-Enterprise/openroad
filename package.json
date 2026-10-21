@@ -3,26 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "license": "MIT",
+  "packageManager": "pnpm@11.13.1",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "dev": "next dev --hostname 127.0.0.1",
-    "build": "next build --webpack && node scripts/build-worker.mjs",
-    "start": "next start",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run"
-  },
-  "dependencies": {
-    "next": "16.2.9",
-    "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "leaflet": "1.9.4",
-    "lucide-react": "^0.468.0"
-  },
-  "devDependencies": {
-    "@types/leaflet": "^1.9.16",
-    "@types/node": "^22.0.0",
-    "@types/react": "^19.0.0",
-    "@types/react-dom": "^19.0.0",
-    "typescript": "^5.7.0",
-    "vitest": "^3.2.0"
+    "dev": "pnpm -r --parallel run dev",
+    "dev:frontend": "pnpm --filter @openroad/frontend dev",
+    "dev:backend": "pnpm --filter @openroad/backend dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "typecheck": "pnpm -r run typecheck",
+    "release:check": "node scripts/check-release.mjs",
+    "docker:build": "docker compose build",
+    "docker:up": "docker compose up -d --wait",
+    "docker:down": "docker compose down",
+    "test:smoke": "node scripts/smoke.mjs"
   }
 }

@@ -8,3 +8,10 @@ out/
 .pi/state.md
 artifacts/
 .DS_Store
+
+dist/
+packages/frontend/public/sw.js
+
+.omni-graph/
+
+.openai/

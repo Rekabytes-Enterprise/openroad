@@ -6,7 +6,7 @@ import { ArrowDownToLine, ArrowRight, ChevronRight, Compass, Crosshair, External
 import { LocationController } from '../location/location';
 import { parseMapConfig, type Destination, type MapConfig, type Point } from '../map/types';
 import type { MapHandle } from '../map/MapView';
-import { parseRoute, type RouteState } from '../routing/route';
+import { readRouteResponse, type RouteState } from '../routing/route';
 import { usePwa } from '@/pwa/usePwa';
 
 const MapView = dynamic(() => import('../map/MapView').then(module => module.MapView), { ssr: false, loading: () => <div className="map-loading"><Compass size={28} /><span>Loading the map…</span></div> });
@@ -28,7 +28,7 @@ export function Explorer() {
   const requestRef = useRef<AbortController | null>(null);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
-  const [follow, setFollow] = useState(false);
+  const [follow, setFollow] = useState(true);
   const [dialog, setDialog] = useState<'about' | 'install' | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const map = useRef<MapHandle>(null);
@@ -51,6 +51,9 @@ export function Explorer() {
   }, [configAttempt]);
 
   useEffect(() => {
+    // Start on entry; the browser still controls permission. Stop stays respected on resume.
+    location.enable();
+    if (document.hidden) location.pause();
     const onVisibility = () => { if (document.hidden) location.pause(); else location.resume(); };
     document.addEventListener('visibilitychange', onVisibility);
     return () => { document.removeEventListener('visibilitychange', onVisibility); location.stop(); };
@@ -75,9 +78,8 @@ export function Explorer() {
     setRouteState({ kind: 'loading' });
     try {
       const response = await fetch('/api/routes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ origin: start, destination: destination.point }), signal: controller.signal });
-      const value: unknown = await response.json();
-      if (!response.ok) throw new Error(value && typeof value === 'object' && 'error' in value && typeof value.error === 'string' ? value.error : 'Could not calculate a route.');
-      if (!controller.signal.aborted) setRouteState({ kind: 'ready', route: parseRoute(value) });
+      const route = await readRouteResponse(response);
+      if (!controller.signal.aborted) setRouteState({ kind: 'ready', route });
     } catch (error) {
       if (!controller.signal.aborted) setRouteState({ kind: 'error', message: error instanceof Error ? error.message : 'Could not calculate a route.' });
     }
@@ -121,7 +123,7 @@ export function Explorer() {
       {!pwa.online && <div className="offline-banner" role="status"><WifiOff size={16} />You are offline. Unloaded map areas need a connection.</div>}
       {pwa.waiting && <div className="update-banner">An update is ready. <button onClick={() => { location.stop(); pwa.update(); }}>Refresh app</button></div>}
       <div className="map-center-crosshair" aria-hidden="true" />
-      <div className="map-controls"><div className="zoom-controls"><button aria-label="Zoom in" onClick={() => map.current?.zoom(1)}><Plus size={21} /></button><button aria-label="Zoom out" onClick={() => map.current?.zoom(-1)}><Minus size={21} /></button></div><button className={`locate-control ${follow ? 'active' : ''}`} aria-label="Find my location" onClick={locate} disabled={locating}><LocateFixed size={21} /></button></div>
+      <div className="map-controls"><div className="zoom-controls"><button aria-label="Zoom in" onClick={() => map.current?.zoom(1)}><Plus size={21} /></button><button aria-label="Zoom out" onClick={() => map.current?.zoom(-1)}><Minus size={21} /></button></div><button className={`locate-control ${follow ? 'active' : ''}`} aria-label="Recenter on my location" onClick={locate} disabled={locating}><LocateFixed size={21} /></button></div>
       <button className="select-center" aria-label="Select map center" onClick={() => { const point = map.current?.getCenter(); if (point) selectPoint(point); }} disabled={!config}><Crosshair size={15} /><span>Select map center</span></button>
       <div className="map-attribution"><span>OpenRoad</span><span>·</span>{config && <a href={config.attributionUrl} target="_blank" rel="noreferrer">{config.attribution}</a>}</div>
     </section>
@@ -129,7 +131,7 @@ export function Explorer() {
     <section className="drive-sheet" aria-label="Driving route">
       <div className="sheet-heading"><div><p className="drive-eyebrow">{routeState.kind === 'ready' ? 'ROUTE PREVIEW' : 'PLAN A DRIVE'}</p><h1>{destination?.name ?? 'Where to?'}</h1></div>{destination && <button aria-label="Clear destination" onClick={() => { clearRoute(); setDestination(null); }}><X size={20} /></button>}</div>
       {!destination && <p className="drive-hint">Search saved places or tap the map to choose a destination.</p>}
-      <div className="drive-location"><span>{origin ? `From ${origin.name}` : locationLabel}</span><button onClick={locate} disabled={locating}>{locating ? 'Locating…' : 'Use my location'}</button>{tracking && <button onClick={() => { location.stop(); setFollow(false); }}>Stop</button>}</div>
+      <div className="drive-location"><span>{origin ? `From ${origin.name}` : locationLabel}</span>{tracking && <button onClick={() => { location.stop(); setFollow(false); }}>Stop</button>}</div>
       {locationState.status === 'error' && <p className="location-error" role="alert">{locationState.message}</p>}
       {origin && <button className="text-action" onClick={() => { clearRoute(); setOrigin(null); }}>Use current location as start</button>}
       {destination && <><div className="drive-route-actions"><button className="primary-button" disabled={(!origin && (locationState.status !== 'ready' || locationState.stale)) || !pwa.online || routeState.kind === 'loading'} onClick={getRoute}>{routeState.kind === 'loading' ? 'Calculating…' : 'Preview route'}<ArrowRight size={18} /></button><button className="text-action" onClick={() => { clearRoute(); setOrigin(destination); setDestination(null); }}>Set as start</button></div><p className="drive-disclosure">Route calculation shares both points with OSRM. No trip history saved.</p></>}

@@ -12,3 +12,6 @@
 - Do not persist or log location coordinates.
 - Do not cache or prefetch external map tiles with the service worker.
 - Keep UI copy literal and concise, following Pstack unslop.
+
+- Before work, recall relevant Omni-graph memories and verify them against current files.
+- CI runs only on dev pushes and PRs targeting dev. Docker publication runs on stable GitHub Release publication, never tag creation/push or branch pushes. Both images must receive version and latest tags. Inspect the referenced project workflow before adapting it; explicit user instructions win over differences in that reference.

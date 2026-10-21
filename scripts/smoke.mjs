@@ -9,7 +9,7 @@ for (const url of [`${backend}/health`, `${frontend}/api/health`]) {
 const home = await fetch(frontend);
 assert.equal(home.status, 200);
 assert.match(home.headers.get('permissions-policy'), /geolocation=\(self\)/);
-assert.match(await home.text(), /Where are/);
+assert.match(await home.text(), /Where to\?/);
 const worker = await fetch(`${frontend}/sw.js`);
 assert.equal(worker.status, 200);
 assert.match(worker.headers.get('cache-control'), /no-cache/);

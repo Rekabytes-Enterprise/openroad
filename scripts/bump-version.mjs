@@ -1,0 +1,15 @@
+import { readFile, writeFile } from 'node:fs/promises';
+const bump = process.argv[2] ?? 'patch';
+if (!['patch', 'minor', 'major'].includes(bump)) throw new Error('Usage: pnpm version:bump [patch|minor|major]');
+const paths = ['package.json', 'packages/backend/package.json', 'packages/frontend/package.json'];
+const packages = await Promise.all(paths.map(async path => JSON.parse(await readFile(path, 'utf8'))));
+const current = packages[0].version;
+if (!/^\d+\.\d+\.\d+$/.test(current) || !packages.every(pkg => pkg.version === current)) throw new Error('Expected matching stable workspace versions');
+const [major, minor, patch] = current.split('.').map(Number);
+const next = bump === 'major' ? `${major + 1}.0.0` : bump === 'minor' ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
+const compose = await readFile('docker-compose.yml', 'utf8');
+const expected = `OPENROAD_VERSION:-${current}`;
+if (compose.split(expected).length !== 3) throw new Error('Expected two matching Docker image version defaults');
+for (const [index, pkg] of packages.entries()) await writeFile(paths[index], JSON.stringify({ ...pkg, version: next }, null, 2) + '\n');
+await writeFile('docker-compose.yml', compose.replaceAll(expected, `OPENROAD_VERSION:-${next}`));
+console.log(`Updated workspace and Docker defaults: ${current} → ${next}. No commit, tag or push created.`);

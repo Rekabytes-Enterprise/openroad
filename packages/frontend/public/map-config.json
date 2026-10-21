@@ -1,8 +1,11 @@
 {
-  "tileUrl": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-  "attribution": "© OpenStreetMap contributors",
+  "attribution": "\u00a9 OpenStreetMap contributors",
   "attributionUrl": "https://www.openstreetmap.org/copyright",
   "maxZoom": 19,
-  "initialCenter": { "lat": 3.1485, "lng": 101.7000 },
-  "initialZoom": 14
+  "initialCenter": {
+    "lat": 3.1485,
+    "lng": 101.7
+  },
+  "initialZoom": 14,
+  "styleUrl": "/map-style.json"
 }

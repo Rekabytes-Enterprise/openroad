@@ -2,6 +2,7 @@
 
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import L from 'leaflet';
+import '@maplibre/maplibre-gl-leaflet';
 import type { Destination, MapConfig, Point } from './types';
 import type { DrivingRoute } from '../routing/route';
 import type { Fix } from '../location/location';
@@ -22,7 +23,7 @@ const pin = L.divIcon({ className: 'destination-marker', html: '<span><svg viewB
 export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, route, destination, fix, follow, onSelect, onDrag }, ref) {
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
-  const tiles = useRef<L.TileLayer | null>(null);
+  const tiles = useRef<L.MaplibreGL | null>(null);
   const destinationMarker = useRef<L.Marker | null>(null);
   const locationMarker = useRef<L.CircleMarker | null>(null);
   const accuracyCircle = useRef<L.Circle | null>(null);
@@ -34,8 +35,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, r
     zoom: delta => { map.current?.setZoom((map.current?.getZoom() ?? 14) + delta); },
     center: point => { map.current?.setView([point.lat, point.lng], Math.max(map.current.getZoom(), 15)); },
     getCenter: () => { const center = map.current?.getCenter(); return center ? { lat: center.lat, lng: center.lng } : undefined; },
-    retry: () => { setTileError(false); tiles.current?.redraw(); },
-  }), []);
+    retry: () => { setTileError(false); tiles.current?.getMaplibreMap().setStyle(config.styleUrl, { diff: false }); },
+  }), [config.styleUrl]);
 
   // Leaflet owns an external DOM tree and event listeners; dispose it on unmount.
   useEffect(() => {
@@ -43,13 +44,13 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, r
     const instance = L.map(container.current, { zoomControl: false, attributionControl: false, minZoom: 3, maxZoom: config.maxZoom, zoomAnimation: false });
     instance.setView([config.initialCenter.lat, config.initialCenter.lng], config.initialZoom);
     map.current = instance;
-    tiles.current = L.tileLayer(config.tileUrl, { maxZoom: config.maxZoom, keepBuffer: 0 }).addTo(instance);
-    tiles.current.on('tileerror', () => setTileError(true));
+    tiles.current = L.maplibreGL({ style: config.styleUrl, attributionControl: false }).addTo(instance);
+    tiles.current.getMaplibreMap().on('error', () => setTileError(true));
     instance.on('click', (event: L.LeafletMouseEvent) => callbacks.current.onSelect({ lat: event.latlng.lat, lng: event.latlng.lng }));
     instance.on('dragstart', () => callbacks.current.onDrag());
     const observer = new ResizeObserver(() => instance.invalidateSize());
     observer.observe(container.current);
-    return () => { observer.disconnect(); instance.remove(); map.current = null; destinationMarker.current = null; locationMarker.current = null; accuracyCircle.current = null; };
+    return () => { observer.disconnect(); instance.remove(); map.current = null; tiles.current = null; destinationMarker.current = null; locationMarker.current = null; accuracyCircle.current = null; };
   }, [config]);
 
   useEffect(() => {
@@ -86,5 +87,5 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, r
     return () => { line.remove(); start.remove(); };
   }, [route, config]);
 
-  return <><div className="map-canvas" ref={container} aria-label="Interactive map. Use the arrow keys to pan and the Select map center button to choose a destination." />{tileError && <div className="tile-error" role="status">Some map tiles could not load. <button onClick={() => { setTileError(false); tiles.current?.redraw(); }}>Retry</button></div>}</>;
+  return <><div className="map-canvas" ref={container} aria-label="Interactive map. Use the arrow keys to pan and the Select map center button to choose a destination." />{tileError && <div className="tile-error" role="status">Some map tiles could not load. <button onClick={() => { setTileError(false); tiles.current?.getMaplibreMap().setStyle(config.styleUrl, { diff: false }); }}>Retry</button></div>}</>;
 });

@@ -1,7 +1,7 @@
 export type Point = Readonly<{ lat: number; lng: number }>;
 export type Destination = Readonly<{ point: Point; name: string; detail: string }>;
 export type MapConfig = {
-  tileUrl: string;
+  styleUrl: string;
   attribution: string;
   attributionUrl: string;
   maxZoom: number;
@@ -17,13 +17,14 @@ export function validPoint(value: unknown): value is Point {
 
 export function parseMapConfig(value: unknown): MapConfig {
   if (!value || typeof value !== 'object') throw new Error('Map configuration is unavailable.');
-  const config = value as Record<string, unknown>;
-  if (typeof config.tileUrl !== 'string' || !config.tileUrl.startsWith('https://')
-    || !['{z}', '{x}', '{y}'].every(part => String(config.tileUrl).includes(part))
-    || typeof config.attribution !== 'string' || typeof config.attributionUrl !== 'string'
-    || !config.attributionUrl.startsWith('https://') || !validPoint(config.initialCenter)
-    || typeof config.maxZoom !== 'number' || !Number.isInteger(config.maxZoom) || config.maxZoom < 1 || config.maxZoom > 22
-    || typeof config.initialZoom !== 'number' || !Number.isInteger(config.initialZoom)
-    || config.initialZoom < 1 || config.initialZoom > config.maxZoom) throw new Error('Map configuration is invalid.');
-  return config as MapConfig;
+  if (!('styleUrl' in value) || typeof value.styleUrl !== 'string'
+    || !(value.styleUrl.startsWith('https://') || /^\/(?!\/)[^?#]+\.json$/.test(value.styleUrl))
+    || !('attribution' in value) || typeof value.attribution !== 'string'
+    || !('attributionUrl' in value) || typeof value.attributionUrl !== 'string' || !value.attributionUrl.startsWith('https://')
+    || !('initialCenter' in value) || !validPoint(value.initialCenter)
+    || !('maxZoom' in value) || typeof value.maxZoom !== 'number' || !Number.isInteger(value.maxZoom) || value.maxZoom < 1 || value.maxZoom > 22
+    || !('initialZoom' in value) || typeof value.initialZoom !== 'number' || !Number.isInteger(value.initialZoom)
+    || value.initialZoom < 1 || value.initialZoom > value.maxZoom) throw new Error('Map configuration is invalid.');
+  return { styleUrl: value.styleUrl, attribution: value.attribution, attributionUrl: value.attributionUrl,
+    initialCenter: value.initialCenter, maxZoom: value.maxZoom, initialZoom: value.initialZoom };
 }

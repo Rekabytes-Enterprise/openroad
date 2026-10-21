@@ -8,6 +8,7 @@ services:
       - "127.0.0.1:4205:4205"
     environment:
       PORT: "4205"
+      PHOTON_URL: ${PHOTON_URL:-https://po-openroad.techapi.my}
       OSRM_URL: ${OSRM_URL:-https://router.project-osrm.org}
     restart: unless-stopped
   frontend:

@@ -43,3 +43,7 @@ body{position:fixed;inset:0}
   .tile-error,.offline-banner{top:calc(125px + env(safe-area-inset-top))}
   .update-banner{top:calc(165px + env(safe-area-inset-top))}
 }
+
+/* Keep live search results within the map viewport on desktop and mobile. */
+.drive-results{max-height:45dvh;overflow-y:auto}
+@media(max-width:760px){.drive-results{max-height:30dvh}}

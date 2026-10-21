@@ -1,0 +1,10 @@
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env*
+!.env.example
+.pi/memory.md
+.pi/state.md
+artifacts/
+.DS_Store

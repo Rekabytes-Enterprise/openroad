@@ -1,7 +1,7 @@
 name: Build and publish Docker images
 on:
-  push:
-    tags: ['v*.*.*']
+  release:
+    types: [published]
 permissions:
   contents: read
 concurrency:
@@ -9,10 +9,12 @@ concurrency:
   cancel-in-progress: false
 jobs:
   gate:
+    if: ${{ !github.event.release.prerelease }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event.release.tag_name }}
           fetch-depth: 0
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
@@ -21,6 +23,11 @@ jobs:
           cache: pnpm
       - name: Require release commit on main
         run: git merge-base --is-ancestor HEAD origin/main
+      - name: Validate release version
+        env:
+          GITHUB_REF_TYPE: tag
+          GITHUB_REF_NAME: ${{ github.event.release.tag_name }}
+        run: node scripts/check-release.mjs
       - run: pnpm install --frozen-lockfile
       - run: pnpm release:check && pnpm test && pnpm typecheck && pnpm build
       - run: docker compose up -d --build --wait
@@ -40,6 +47,8 @@ jobs:
         service: [backend, frontend]
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
         with:
@@ -53,9 +62,9 @@ jobs:
           flavor: latest=false
           tags: |
             type=sha,prefix=sha-,format=long
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{version}},value=${{ github.event.release.tag_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.release.tag_name }}
+            type=raw,value=latest
       - uses: docker/build-push-action@v6
         with:
           context: .

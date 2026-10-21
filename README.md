@@ -93,7 +93,7 @@ For hosting, provide HTTPS through your reverse proxy and set frontend
 
 ## Release images
 
-Only version tags trigger image publishing. The release workflow runs tests,
+Publishing a stable GitHub Release triggers image publishing. Creating or pushing a tag alone does not. The release workflow runs tests,
 type checks, builds and container smoke checks before publishing the frontend
 and backend images to GHCR. Tags must match the workspace version and point
 to a commit reachable from main. Prerelease versions fail the gate.
@@ -131,6 +131,6 @@ No location history, analytics database, search API or automatic rerouting is ad
 
 Run `pnpm version:bump patch` to update all workspace package versions and Docker Compose image defaults together. `minor` and `major` are also supported. This command does not commit, tag or push.
 
-CI runs on pushes to `dev` and pull requests targeting `dev`. Open a PR from `dev` to `main` after verification. Docker releases run only on `v*.*.*` tags and retain release validation before publishing.
+CI runs on pushes to `dev` and pull requests targeting `dev`. Open a PR from `dev` to `main` after verification. Docker images publish only on a stable GitHub Release `published` event, with version and `latest` tags for both services. Release validation runs before publishing.
 
 The map-first interface searches the three saved Kuala Lumpur places. Tap the map for other destinations. Raster map labels are supplied by OpenStreetMap; the display uses muted colours but does not change label density.

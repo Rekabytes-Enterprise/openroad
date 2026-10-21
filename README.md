@@ -28,7 +28,7 @@ The frontend builds Next.js standalone output and generates a versioned service 
 
 ## Map provider
 
-`packages/frontend/public/map-config.json` is the single source for tile URL, attribution, zoom limits, and initial view. The browser fetches it at runtime. Keep provider attribution visible. Standard OpenStreetMap tiles are configured for this prototype. Read https://operations.osmfoundation.org/policies/tiles/ before public launch and select a provider appropriate to expected traffic. Tiles are not prefetched or cached by our service worker.
+`packages/frontend/public/map-config.json` configures the vector style URL, attribution, zoom limits and initial view. `map-style.json` is a local copy of [OpenFreeMap Positron](https://tiles.openfreemap.org/styles/positron), rendered through MapLibre's Leaflet adapter. Its three country label layers display `Palestine` for `iso_a2=IL`; Hebrew labels use an English or Latin fallback when available, otherwise they are hidden. Other labels, borders and geometry retain the provider's styling and data. `scripts/build-map-style.mjs` generates the style from `scripts/styles/positron.json` during builds. Keep OpenFreeMap, OpenMapTiles and OpenStreetMap attribution visible. External tiles and fonts need a network connection and are not cached or prefetched by our service worker. WebGL is required for the vector basemap.
 
 Curated Kuala Lumpur destinations are local sample places, not a search API. Dropping a pin uses its coordinates without reverse geocoding.
 

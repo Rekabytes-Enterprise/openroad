@@ -1,23 +1,26 @@
 {
   "name": "@openroad/frontend",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "license": "MIT",
   "scripts": {
     "dev": "next dev --hostname 127.0.0.1 --port 4206",
-    "build": "next build --webpack && node scripts/build-worker.mjs",
+    "build": "node scripts/build-map-style.mjs && next build --webpack && node scripts/build-worker.mjs",
     "start": "next start --hostname 0.0.0.0 --port 4206",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
+    "@maplibre/maplibre-gl-leaflet": "0.1.3",
+    "leaflet": "1.9.4",
+    "lucide-react": "^0.468.0",
+    "maplibre-gl": "^5.24.0",
     "next": "16.2.9",
     "react": "19.2.7",
-    "react-dom": "19.2.7",
-    "leaflet": "1.9.4",
-    "lucide-react": "^0.468.0"
+    "react-dom": "19.2.7"
   },
   "devDependencies": {
+    "@maplibre/maplibre-gl-style-spec": "^24.10.0",
     "@types/leaflet": "^1.9.16",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

@@ -84,7 +84,7 @@ describe('location lifecycle', () => {
 describe('map configuration boundary', () => {
   it('accepts the configured tile source and rejects missing or insecure providers', () => {
     expect(parseMapConfig(config)).toEqual(config);
-    expect(() => parseMapConfig({ ...config, tileUrl: 'http://invalid/{z}/{x}/{y}' })).toThrow();
+    expect(() => parseMapConfig({ ...config, styleUrl: 'http://invalid/style.json' })).toThrow();
     expect(() => parseMapConfig({ ...config, initialCenter: { lat: 101, lng: 3 } })).toThrow();
     expect(() => parseMapConfig({ ...config, maxZoom: Number.NaN })).toThrow();
     expect(() => parseMapConfig(null)).toThrow();

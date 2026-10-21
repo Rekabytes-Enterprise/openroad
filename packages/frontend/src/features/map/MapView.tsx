@@ -80,7 +80,9 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, r
     const line = L.polyline(route.points.map(point => [point.lat, point.lng]), { color: '#3056ee', weight: 6, opacity: 0.85, interactive: false }).addTo(instance);
     const first = route.points[0];
     const start = L.circleMarker([first.lat, first.lng], { radius: 7, color: '#fff', weight: 3, fillColor: '#16244d', fillOpacity: 1, interactive: false }).addTo(instance);
-    instance.fitBounds(line.getBounds(), { paddingTopLeft: [45, 70], paddingBottomRight: [45, 180], maxZoom: 16 });
+    const size = instance.getSize();
+    const mobile = size.x <= 760;
+    instance.fitBounds(line.getBounds(), { paddingTopLeft: mobile ? [35, 120] : [400, 100], paddingBottomRight: mobile ? [55, Math.round(size.y * 0.43) + 35] : [60, 60], maxZoom: 16 });
     return () => { line.remove(); start.remove(); };
   }, [route, config]);
 

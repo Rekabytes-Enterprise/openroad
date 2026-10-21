@@ -86,19 +86,16 @@ pnpm test:smoke
 pnpm docker:down
 ```
 
-Compose builds `openroad-backend:0.1.0` and `openroad-frontend:0.1.0`. Both run as
+Compose builds `openroad-backend:0.1.1` and `openroad-frontend:0.1.1`. Both run as
 non-root users and have health checks. Host ports bind to loopback by default.
 For hosting, provide HTTPS through your reverse proxy and set frontend
 `BACKEND_URL` to the backend service URL. Environment examples live in each package.
 
-## Main and release images
+## Release images
 
-The prepared workflows follow Mokara's GHCR setup. After an explicitly authorized
-push to a configured GitHub repository, `main` runs tests, type checks, builds,
-container health checks and a frontend-to-backend smoke test before publishing
-`ghcr.io/<repository-owner>/openroad-frontend:main` and the corresponding backend
-image, plus immutable `sha-<commit>` tags. Stable `vX.Y.Z` tags publish version,
-major.minor and `latest` tags. Tags must match every workspace manifest and point
+Only version tags trigger image publishing. The release workflow runs tests,
+type checks, builds and container smoke checks before publishing the frontend
+and backend images to GHCR. Tags must match the workspace version and point
 to a commit reachable from main. Prerelease versions fail the gate.
 
 Keep root and package versions synchronized; run `pnpm release:check` before
@@ -129,3 +126,11 @@ does not persist or log route bodies. The provider may have its own access logs.
 Use `OSRM_URL` for a self-hosted or dedicated compatible service before public
 launch, and review the provider usage policy. Public demo uptime is not guaranteed.
 No location history, analytics database, search API or automatic rerouting is added.
+
+## Version bumps and delivery
+
+Run `pnpm version:bump patch` to update all workspace package versions and Docker Compose image defaults together. `minor` and `major` are also supported. This command does not commit, tag or push.
+
+CI runs on pushes to `dev` and pull requests targeting `dev`. Open a PR from `dev` to `main` after verification. Docker releases run only on `v*.*.*` tags and retain release validation before publishing.
+
+The map-first interface searches the three saved Kuala Lumpur places. Tap the map for other destinations. Raster map labels are supplied by OpenStreetMap; the display uses muted colours but does not change label density.

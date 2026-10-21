@@ -2,7 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { ArrowDownToLine, ArrowRight, Check, ChevronRight, Compass, Crosshair, ExternalLink, Flag, Info, Landmark, LocateFixed, MapPin, Minus, Navigation2, Plus, ShieldCheck, Trees, WifiOff, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowRight, ChevronRight, Compass, Crosshair, ExternalLink, Info, LocateFixed, MapPin, Minus, Navigation2, Plus, WifiOff, X } from 'lucide-react';
 import { LocationController } from '../location/location';
 import { parseMapConfig, type Destination, type MapConfig, type Point } from '../map/types';
 import type { MapHandle } from '../map/MapView';
@@ -26,6 +26,8 @@ export function Explorer() {
   const [origin, setOrigin] = useState<Destination | null>(null);
   const [routeState, setRouteState] = useState<RouteState>({ kind: 'idle' });
   const requestRef = useRef<AbortController | null>(null);
+  const [query, setQuery] = useState('');
+  const [searchOpen, setSearchOpen] = useState(false);
   const [follow, setFollow] = useState(false);
   const [dialog, setDialog] = useState<'about' | 'install' | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -90,6 +92,8 @@ export function Explorer() {
   function selectPlace(place: Destination) {
     clearRoute();
     setDestination(place);
+    setSearchOpen(false);
+    setQuery('');
     setFollow(false);
     map.current?.center(place.point);
   }
@@ -107,57 +111,32 @@ export function Explorer() {
     : locating ? 'Finding your location…' : locationState.status === 'paused' ? 'Location is paused' : 'Your location is off';
 
   return <main className="explorer">
-    <aside className="sidebar" aria-label="Explore places">
-      <header className="brand-row"><a href="/" className="brand" aria-label="OpenRoad home"><span className="brand-mark"><Navigation2 size={24} fill="currentColor" strokeWidth={1.5} /></span><span>openroad<span className="brand-dot">.</span></span></a><span className="beta-tag">EARLY ACCESS</span></header>
-      <div className="sidebar-body">
-        <div className="section-kicker"><span className="green-dot" /> GO EXPLORE</div>
-        <h1>Where are<br className="desktop-break" /> we headed?</h1>
-        <p className="intro">Choose a place on the map,<br />or explore a spot below.</p>
-
-        <section className={`location-card ${fix ? 'is-located' : ''}`} aria-label="Your location">
-          <div className="location-heading"><span className="location-icon"><LocateFixed size={19} /></span><div><strong>{locationLabel}</strong><p>{fix ? `Accuracy within ${Math.round(fix.accuracy)} m` : locationState.status === 'requesting' ? locationState.message : 'Enable it to find yourself on the map.'}</p></div></div>
-          {locationState.status === 'error' && <p className="location-error" role="alert">{locationState.message}</p>}
-          <div className="location-actions"><button className="primary-button" onClick={locate} disabled={locating}><LocateFixed size={16} />{locating ? 'Finding you…' : fix ? 'Recenter on me' : 'Use my location'}<ArrowRight size={17} /></button>{tracking && <button className="stop-button" onClick={() => { location.stop(); setFollow(false); }}>Stop</button>}</div>
-          <span className="privacy-line"><ShieldCheck size={12} /> Location is not saved to a trip history.</span>
-        </section>
-
-        <section className="places-section" aria-label="Places to explore">
-          <div className="section-heading"><h2>Around Kuala Lumpur</h2><span>3 places</span></div>
-          <div className="places-list">{places.map((place, index) => <button className={`place-card ${destination?.name === place.name ? 'selected' : ''}`} key={place.name} onClick={() => selectPlace(place)} aria-pressed={destination?.name === place.name}>
-            <span className={`place-icon place-icon-${index}`}>{index === 0 ? <Trees size={22} /> : index === 1 ? <Flag size={22} /> : <Landmark size={22} />}</span><span className="place-copy"><strong>{place.name}</strong><span>{place.detail}</span></span><ChevronRight className="place-chevron" size={17} />
-          </button>)}</div>
-        </section>
-        <div className="map-tip"><MapPin size={17} /><p>Somewhere else in mind?<br /><strong>Tap anywhere on the map.</strong></p></div>
-        <section className="route-planner" aria-label="Driving route">
-          <h2>Plan a drive</h2>
-          <p>From: {origin?.name ?? 'Your current location'}</p>
-          {origin && <button onClick={() => { clearRoute(); setOrigin(null); }}>Use current location instead</button>}
-          <p>To: {destination?.name ?? 'Select a destination on the map'}</p>
-          <button disabled={!destination} onClick={() => { if (destination) { clearRoute(); setOrigin(destination); setDestination(null); } }}>Use selected pin as start</button>
-          <p className="route-note">Calculate route sends both points to our route service and OSRM. No trip history is saved.</p>
-          <button className="primary-button" disabled={!destination || (!origin && (locationState.status !== 'ready' || locationState.stale)) || !pwa.online || routeState.kind === 'loading'} onClick={getRoute}>{routeState.kind === 'loading' ? 'Calculating…' : 'Calculate route'}</button>
-          {!origin && (locationState.status !== 'ready' || locationState.stale) && <p>Get a fresh location or select a start pin first.</p>}
-          {routeState.kind === 'error' && <p role="alert">{routeState.message}</p>}
-          {routeState.kind === 'ready' && <p role="status"><strong>{(routeState.route.distanceMeters / 1000).toFixed(1)} km · {Math.max(1, Math.round(routeState.route.durationSeconds / 60))} min</strong><br />Driving estimate, without live traffic. Route preview only.</p>}
-          {routeState.kind !== 'idle' && <button onClick={clearRoute}>{routeState.kind === 'loading' ? 'Cancel route' : 'Clear route'}</button>}
-        </section>
-        <div className="sidebar-spacer" />
-        <button className="install-card" onClick={install}><span className="install-symbol"><ArrowDownToLine size={20} /></span><span><strong>{pwa.installed ? 'OpenRoad is installed' : 'Take the map with you'}</strong><span>{pwa.installed ? 'Ready on your home screen' : 'Add OpenRoad to your home screen'}</span></span><ChevronRight size={16} /></button>
-      </div>
-      <footer className="sidebar-footer"><span><span className="tiny-dot" /> Built on open maps</span><button onClick={() => setDialog('about')}>About <ExternalLink size={12} /></button></footer>
-    </aside>
-
+    <header className="drive-header">
+      <a className="drive-brand" href="/" aria-label="OpenRoad home"><Navigation2 size={22} />openroad.</a>
+      <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search saved places</span></label><input id="place-search" placeholder="Where to?" value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? setSearchOpen(false) : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>
+      {searchOpen && <section className="drive-results" aria-label="Saved places"><p>Saved places · Kuala Lumpur</p>{places.filter(place => place.name.toLowerCase().includes(query.toLowerCase())).map(place => <button key={place.name} onClick={() => selectPlace(place)}><MapPin size={18} /><span>{place.name}<small>{place.detail}</small></span><ChevronRight size={18} /></button>)}{!places.some(place => place.name.toLowerCase().includes(query.toLowerCase())) && <p>No saved place found. Tap the map to drop a pin.</p>}</section>}
+    </header>
     <section className="map-region" aria-label="Map">
       {config ? <MapView ref={map} config={config} route={routeState.kind === 'ready' ? routeState.route : null} destination={destination} fix={fix} follow={follow} onSelect={selectPoint} onDrag={pauseFollow} /> : <div className="map-loading"><Compass size={28} /><span>{configError || 'Loading the map…'}</span>{configError && <button onClick={() => setConfigAttempt(value => value + 1)}>Try again</button>}</div>}
-      <div className="map-topbar"><div className="map-context"><span className="context-icon"><MapPin size={15} /></span><strong>{destination?.name ?? 'Kuala Lumpur'}</strong><span className="context-divider" /><span>{destination ? 'Selected place' : 'Malaysia'}</span></div><button className="info-button" onClick={() => setDialog('about')} aria-label="About OpenRoad"><Info size={19} /></button></div>
       {!pwa.online && <div className="offline-banner" role="status"><WifiOff size={16} />You are offline. Unloaded map areas need a connection.</div>}
       {pwa.waiting && <div className="update-banner">An update is ready. <button onClick={() => { location.stop(); pwa.update(); }}>Refresh app</button></div>}
       <div className="map-center-crosshair" aria-hidden="true" />
       <div className="map-controls"><div className="zoom-controls"><button aria-label="Zoom in" onClick={() => map.current?.zoom(1)}><Plus size={21} /></button><button aria-label="Zoom out" onClick={() => map.current?.zoom(-1)}><Minus size={21} /></button></div><button className={`locate-control ${follow ? 'active' : ''}`} aria-label="Find my location" onClick={locate} disabled={locating}><LocateFixed size={21} /></button></div>
-      {destination ? <section className="destination-card" aria-label="Selected destination"><div className="destination-card-top"><span className="destination-card-icon"><MapPin size={23} /></span><div><span className="destination-label">YOUR DESTINATION</span><h2>{destination.name}</h2><p>{destination.detail}</p></div><button className="clear-destination" aria-label="Clear destination" onClick={() => { clearRoute(); setDestination(null); }}><X size={18} /></button></div><div className="destination-card-bottom"><span><Check size={14} /> Pin selected</span><button onClick={() => { setFollow(false); map.current?.center(destination.point); }}>View on map <ArrowRight size={15} /></button></div></section>
-        : <div className="map-instruction"><span><MapPin size={18} /></span><div><strong>Start with a pin</strong><p>Tap the map to choose your destination.</p></div></div>}
       <button className="select-center" aria-label="Select map center" onClick={() => { const point = map.current?.getCenter(); if (point) selectPoint(point); }} disabled={!config}><Crosshair size={15} /><span>Select map center</span></button>
       <div className="map-attribution"><span>OpenRoad</span><span>·</span>{config && <a href={config.attributionUrl} target="_blank" rel="noreferrer">{config.attribution}</a>}</div>
+    </section>
+
+    <section className="drive-sheet" aria-label="Driving route">
+      <div className="sheet-heading"><div><p className="drive-eyebrow">{routeState.kind === 'ready' ? 'ROUTE PREVIEW' : 'PLAN A DRIVE'}</p><h1>{destination?.name ?? 'Where to?'}</h1></div>{destination && <button aria-label="Clear destination" onClick={() => { clearRoute(); setDestination(null); }}><X size={20} /></button>}</div>
+      {!destination && <p className="drive-hint">Search saved places or tap the map to choose a destination.</p>}
+      <div className="drive-location"><span>{origin ? `From ${origin.name}` : locationLabel}</span><button onClick={locate} disabled={locating}>{locating ? 'Locating…' : 'Use my location'}</button>{tracking && <button onClick={() => { location.stop(); setFollow(false); }}>Stop</button>}</div>
+      {locationState.status === 'error' && <p className="location-error" role="alert">{locationState.message}</p>}
+      {origin && <button className="text-action" onClick={() => { clearRoute(); setOrigin(null); }}>Use current location as start</button>}
+      {destination && <><div className="drive-route-actions"><button className="primary-button" disabled={(!origin && (locationState.status !== 'ready' || locationState.stale)) || !pwa.online || routeState.kind === 'loading'} onClick={getRoute}>{routeState.kind === 'loading' ? 'Calculating…' : 'Preview route'}<ArrowRight size={18} /></button><button className="text-action" onClick={() => { clearRoute(); setOrigin(destination); setDestination(null); }}>Set as start</button></div><p className="drive-disclosure">Route calculation shares both points with OSRM. No trip history saved.</p></>}
+      {routeState.kind === 'ready' && <div className="drive-estimate" role="status"><strong>{Math.max(1, Math.round(routeState.route.durationSeconds / 60))} min <span>· {(routeState.route.distanceMeters / 1000).toFixed(1)} km</span></strong><small>Driving estimate · No live traffic or turn guidance</small></div>}
+      {routeState.kind === 'error' && <p className="location-error" role="alert">{routeState.message}</p>}
+      {routeState.kind !== 'idle' && <button className="text-action" onClick={clearRoute}>{routeState.kind === 'loading' ? 'Cancel route' : 'Clear route'}</button>}
+      <button className="drive-install" onClick={install}>{pwa.installed ? 'App installed' : 'Install OpenRoad'}</button>
     </section>
 
     <dialog ref={dialogRef} className="app-dialog" onCancel={() => setDialog(null)} onClick={event => { if (event.target === event.currentTarget) setDialog(null); }} aria-labelledby="dialog-title"><button className="dialog-close" aria-label="Close dialog" onClick={() => setDialog(null)}><X size={20} /></button><span className="dialog-icon">{dialog === 'install' ? <ArrowDownToLine size={26} /> : <Compass size={26} />}</span><h2 id="dialog-title">{dialog === 'install' ? 'Keep OpenRoad on your home screen' : 'A map built on open data'}</h2>{dialog === 'install' ? <><p>On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen.</p><p>On Android or desktop, use your browser menu and choose Install app or Add to Home Screen when available.</p><p className="dialog-note">The app can open offline after your first visit. Map tiles still need a connection.</p></> : <><p>OpenRoad uses OpenStreetMap data and Leaflet. Choose a place on the map and use your device location to find your bearings.</p><p>Location is optional. We keep it in this session and do not save a location history. The map provider receives requests for the areas you view.</p><p className="dialog-note">Driving route previews use OSRM. Estimates do not include live traffic. Turn-by-turn guidance is not available.</p><a className="dialog-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap attribution <ExternalLink size={14} /></a></>}</dialog>

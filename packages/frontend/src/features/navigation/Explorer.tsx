@@ -7,15 +7,11 @@ import { LocationController } from '../location/location';
 import { parseMapConfig, type Destination, type MapConfig, type Point } from '../map/types';
 import type { MapHandle } from '../map/MapView';
 import { readRouteResponse, type RouteState } from '../routing/route';
+import { useAppearance } from '../appearance/useAppearance';
+import { usePlaceSearch } from '../search/usePlaceSearch';
 import { usePwa } from '@/pwa/usePwa';
 
 const MapView = dynamic(() => import('../map/MapView').then(module => module.MapView), { ssr: false, loading: () => <div className="map-loading"><Compass size={28} /><span>Loading the map…</span></div> });
-const places: Destination[] = [
-  { name: 'KLCC Park', detail: 'Park · Kuala Lumpur City Centre', point: { lat: 3.1550, lng: 101.7130 } },
-  { name: 'Merdeka Square', detail: 'Landmark · City centre', point: { lat: 3.1486, lng: 101.6935 } },
-  { name: 'Central Market', detail: 'Market · Jalan Hang Kasturi', point: { lat: 3.1425, lng: 101.6953 } },
-];
-
 export function Explorer() {
   const [location] = useState(() => new LocationController(() => typeof navigator === 'undefined' ? undefined : navigator.geolocation));
   const locationState = useSyncExternalStore(location.subscribe, location.getSnapshot, location.getServerSnapshot);
@@ -33,8 +29,10 @@ export function Explorer() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const map = useRef<MapHandle>(null);
   const pwa = usePwa();
+  const search = usePlaceSearch(query, searchOpen, pwa.online);
   const fix = locationState.status === 'ready' ? locationState.fix : null;
   const locating = locationState.status === 'requesting';
+  const appearance = useAppearance(fix?.point ?? null);
 
   // Runtime tile configuration is fetched once, independently from GPS permission.
   useEffect(() => {
@@ -114,11 +112,16 @@ export function Explorer() {
   return <main className="explorer">
     <header className="drive-header">
       <a className="drive-brand" href="/" aria-label="OpenRoad home"><Navigation2 size={22} />openroad.</a>
-      <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search saved places</span></label><input id="place-search" placeholder="Where to?" value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? setSearchOpen(false) : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>
-      {searchOpen && <section className="drive-results" aria-label="Saved places"><p>Saved places · Kuala Lumpur</p>{places.filter(place => place.name.toLowerCase().includes(query.toLowerCase())).map(place => <button key={place.name} onClick={() => selectPlace(place)}><MapPin size={18} /><span>{place.name}<small>{place.detail}</small></span><ChevronRight size={18} /></button>)}{!places.some(place => place.name.toLowerCase().includes(query.toLowerCase())) && <p>No saved place found. Tap the map to drop a pin.</p>}</section>}
+      <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search places</span></label><input id="place-search" maxLength={160} autoComplete="off" onKeyDown={event => { if (event.key === 'Escape') setSearchOpen(false); }} placeholder="Where to?" value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? setSearchOpen(false) : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>
+      {searchOpen && <section className="drive-results" aria-label="Place search results" aria-busy={search.state.kind === 'loading'}>
+        <div role="status">{search.state.kind === 'idle' && <p>Type at least 3 characters. Add a city to narrow results.</p>}{search.state.kind === 'loading' && <p>Searching…</p>}{search.state.kind === 'ready' && search.state.places.length === 0 && <p>No places found. Try another name or drop a pin.</p>}</div>
+        {search.state.kind === 'error' && <><p role="alert">{search.state.message}</p>{pwa.online && <button onClick={search.retry}>Try again</button>}</>}
+        {search.state.kind === 'ready' && search.state.places.map(place => <button key={place.id} onClick={() => selectPlace(place)}><MapPin size={18} /><span>{place.name}<small>{place.detail}</small></span><ChevronRight size={18} /></button>)}
+        <p>Search by Photon · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></p>
+      </section>}
     </header>
     <section className="map-region" aria-label="Map">
-      {config ? <MapView ref={map} config={config} route={routeState.kind === 'ready' ? routeState.route : null} destination={destination} fix={fix} follow={follow} onSelect={selectPoint} onDrag={pauseFollow} /> : <div className="map-loading"><Compass size={28} /><span>{configError || 'Loading the map…'}</span>{configError && <button onClick={() => setConfigAttempt(value => value + 1)}>Try again</button>}</div>}
+      {config ? <MapView ref={map} config={config} appearance={appearance} route={routeState.kind === 'ready' ? routeState.route : null} destination={destination} fix={fix} follow={follow} onSelect={selectPoint} onDrag={pauseFollow} /> : <div className="map-loading"><Compass size={28} /><span>{configError || 'Loading the map…'}</span>{configError && <button onClick={() => setConfigAttempt(value => value + 1)}>Try again</button>}</div>}
       {!pwa.online && <div className="offline-banner" role="status"><WifiOff size={16} />You are offline. Unloaded map areas need a connection.</div>}
       {pwa.waiting && <div className="update-banner">An update is ready. <button onClick={() => { location.stop(); pwa.update(); }}>Refresh app</button></div>}
       <div className="map-center-crosshair" aria-hidden="true" />
@@ -129,7 +132,7 @@ export function Explorer() {
 
     <section className="drive-sheet" aria-label="Driving route">
       <div className="sheet-heading"><div><p className="drive-eyebrow">{routeState.kind === 'ready' ? 'ROUTE PREVIEW' : 'PLAN A DRIVE'}</p><h1>{destination?.name ?? 'Where to?'}</h1></div>{destination && <button aria-label="Clear destination" onClick={() => { clearRoute(); setDestination(null); }}><X size={20} /></button>}</div>
-      {!destination && <p className="drive-hint">Search saved places or tap the map to choose a destination.</p>}
+      {!destination && <p className="drive-hint">Search places or tap the map to choose a destination.</p>}
       <div className="drive-location"><span>{origin ? `From ${origin.name}` : locationLabel}</span></div>
       {locationState.status === 'error' && <p className="location-error" role="alert">{locationState.message}</p>}
       {origin && <button className="text-action" onClick={() => { clearRoute(); setOrigin(null); }}>Use current location as start</button>}
@@ -137,10 +140,10 @@ export function Explorer() {
       {routeState.kind === 'ready' && <div className="drive-estimate" role="status"><strong>{Math.max(1, Math.round(routeState.route.durationSeconds / 60))} min <span>· {(routeState.route.distanceMeters / 1000).toFixed(1)} km</span></strong><small>Driving estimate · No live traffic or turn guidance</small></div>}
       {routeState.kind === 'error' && <p className="location-error" role="alert">{routeState.message}</p>}
       {routeState.kind !== 'idle' && <button className="text-action" onClick={clearRoute}>{routeState.kind === 'loading' ? 'Cancel route' : 'Clear route'}</button>}
-      <button className="drive-install" onClick={install}>{pwa.installed ? 'App installed' : 'Install OpenRoad'}</button>
+      {!pwa.installed && <button className="drive-install" onClick={install}>Install OpenRoad</button>}
     </section>
 
-    <dialog ref={dialogRef} className="app-dialog" onCancel={() => setDialog(null)} onClick={event => { if (event.target === event.currentTarget) setDialog(null); }} aria-labelledby="dialog-title"><button className="dialog-close" aria-label="Close dialog" onClick={() => setDialog(null)}><X size={20} /></button><span className="dialog-icon">{dialog === 'install' ? <ArrowDownToLine size={26} /> : <Compass size={26} />}</span><h2 id="dialog-title">{dialog === 'install' ? 'Keep OpenRoad on your home screen' : 'A map built on open data'}</h2>{dialog === 'install' ? <><p>On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen.</p><p>On Android or desktop, use your browser menu and choose Install app or Add to Home Screen when available.</p><p className="dialog-note">The app can open offline after your first visit. Map tiles still need a connection.</p></> : <><p>OpenRoad uses OpenStreetMap data, OpenFreeMap vector tiles, Leaflet and MapLibre. Choose a place on the map and use your device location to find your bearings.</p><p>Location is optional. We keep it in this session and do not save a location history. The map provider receives requests for the areas you view.</p><p className="dialog-note">Driving route previews use OSRM. Estimates do not include live traffic. Turn-by-turn guidance is not available.</p><a className="dialog-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap attribution <ExternalLink size={14} /></a><a className="dialog-link" href="/licenses/positron.md" target="_blank" rel="noreferrer">Positron style credits and license <ExternalLink size={14} /></a></>}</dialog>
+    <dialog ref={dialogRef} className="app-dialog" onCancel={() => setDialog(null)} onClick={event => { if (event.target === event.currentTarget) setDialog(null); }} aria-labelledby="dialog-title"><button className="dialog-close" aria-label="Close dialog" onClick={() => setDialog(null)}><X size={20} /></button><span className="dialog-icon">{dialog === 'install' ? <ArrowDownToLine size={26} /> : <Compass size={26} />}</span><h2 id="dialog-title">{dialog === 'install' ? 'Keep OpenRoad on your home screen' : 'A map built on open data'}</h2>{dialog === 'install' ? <><p>On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen.</p><p>On Android or desktop, use your browser menu and choose Install app or Add to Home Screen when available.</p><p className="dialog-note">The app can open offline after your first visit. Map tiles still need a connection.</p></> : <><p>OpenRoad uses OpenStreetMap data, OpenFreeMap vector tiles, Leaflet and MapLibre. Choose a place on the map and use your device location to find your bearings.</p><p>Location is optional. We keep it in this session and do not save a location history. Day and night appearance follows local sunrise and sunset when location is available, otherwise your device appearance. The map provider receives requests for the areas you view.</p><p className="dialog-note">Driving route previews use OSRM. Estimates do not include live traffic. Turn-by-turn guidance is not available.</p><a className="dialog-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap attribution <ExternalLink size={14} /></a><a className="dialog-link" href="/licenses/positron.md" target="_blank" rel="noreferrer">Positron style credits and license <ExternalLink size={14} /></a></>}</dialog>
     <div className="sr-only" aria-live="polite">{destination ? `${destination.name} selected as destination.` : ''}</div>
   </main>;
 }

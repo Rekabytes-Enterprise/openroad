@@ -134,3 +134,36 @@ Run `pnpm version:bump patch` to update all workspace package versions and Docke
 CI runs on pushes to `dev` and pull requests targeting `dev`. Open a PR from `dev` to `main` after verification. Docker images publish only on a stable GitHub Release `published` event, with version and `latest` tags for both services. Release validation runs before publishing.
 
 The map-first interface searches the three saved Kuala Lumpur places. Tap the map for other destinations. Raster map labels are supplied by OpenStreetMap; the display uses muted colours but does not change label density.
+
+### Place search
+
+Set the backend runtime variable `PHOTON_URL=https://po-openroad.techapi.my`.
+The frontend continues to use `BACKEND_URL`; no public Photon variable or rebuild-time URL is needed.
+Local Docker Compose supplies the Photon URL by default. For direct development,
+export it in the backend process environment before starting the server.
+
+Search flows through `POST /api/places/search` on Next.js to `POST /places/search`
+on Hono, then to the self-hosted Photon `/api` endpoint. The request body is
+`{"query":"KLCC"}`. Queries must contain 3–160 characters. Results contain an OSM
+identifier, name, address detail and named latitude/longitude coordinates.
+The UI waits 300 ms after typing and cancels superseded requests. Selecting a
+result uses the existing destination and route-preview flow.
+
+Search requests and responses are not cached or persisted by OpenRoad. GPS
+coordinates are not sent with searches. Photon and infrastructure access logs
+are configured separately and may record the upstream query URL. The backend
+limits concurrent provider requests to eight and uses an eight-second timeout.
+The dataset currently covers Asia; search results depend on OSM coverage.
+
+Deploy both updated OpenRoad services to enable search. Deploying Photon alone
+or setting `PHOTON_URL` on older OpenRoad images does not enable this feature.
+
+### Automatic day and night appearance
+
+The app calculates local sunrise and sunset from the current session's device
+location using SunCalc. It switches the UI and local map style together, checks
+every 30 seconds and immediately when returning to the app. Location is neither
+sent to another service nor saved for this calculation. Without a location fix,
+the app follows the device light/dark preference. Polar day and polar night are
+handled without assuming fixed hours or the device timezone. Switching map styles
+preserves the current camera, destination and route overlays.

@@ -43,3 +43,35 @@ body{position:fixed;inset:0}
   .tile-error,.offline-banner{top:calc(125px + env(safe-area-inset-top))}
   .update-banner{top:calc(165px + env(safe-area-inset-top))}
 }
+
+/* Keep live search results within the map viewport on desktop and mobile. */
+.drive-results{max-height:45dvh;overflow-y:auto}
+@media(max-width:760px){.drive-results{max-height:30dvh}}
+
+/* Sunrise/sunset appearance. Coordinates stay in the current browser session. */
+:root{color-scheme:light}
+:root[data-theme=dark]{color-scheme:dark;--ink:#edf2f7;--muted:#a6b3c1;--blue:#6488ff;--border:#35414e;--paper:#151c25;background:#151c25}
+html[data-theme=dark],html[data-theme=dark] body{background:var(--paper)}
+[data-theme=dark] .drive-header,[data-theme=dark] .drive-sheet,[data-theme=dark] .drive-results,[data-theme=dark] .app-dialog,[data-theme=dark] .map-attribution{background:var(--paper);color:var(--ink)}
+[data-theme=dark] .drive-brand{color:#e6eff9;text-shadow:none}
+[data-theme=dark] .drive-search{background:#222d3a}
+[data-theme=dark] .drive-results button:hover{background:#29374a}
+[data-theme=dark] .drive-results p,[data-theme=dark] .drive-results small,[data-theme=dark] .drive-eyebrow,[data-theme=dark] .drive-hint,[data-theme=dark] .drive-location span,[data-theme=dark] .drive-disclosure,[data-theme=dark] .drive-estimate span,[data-theme=dark] .drive-estimate small,[data-theme=dark] .drive-install,[data-theme=dark] .map-attribution,[data-theme=dark] .app-dialog p{color:#b1becc}
+[data-theme=dark] .drive-search input::placeholder{color:#b1becc;opacity:1}
+[data-theme=dark] .zoom-controls,[data-theme=dark] .zoom-controls button,[data-theme=dark] .locate-control,[data-theme=dark] .map-controls .select-center{background:#222d3a;color:#dce6ef;border-color:var(--border)}
+[data-theme=dark] .zoom-controls button:first-child,[data-theme=dark] .drive-estimate{border-color:var(--border)}
+[data-theme=dark] .zoom-controls button:hover{background:#344354}
+[data-theme=dark] .locate-control.active,[data-theme=dark] .primary-button{background:#4269ec;color:#fff}
+[data-theme=dark] .text-action{background:#26364e;color:#bdceff}
+[data-theme=dark] .location-error{color:#ffb19e}
+[data-theme=dark] .map-loading,[data-theme=dark] .map-canvas,[data-theme=dark] .map-region{background:#111820;color:#b1becc}
+[data-theme=dark] .map-loading button,[data-theme=dark] .dialog-icon{background:#26364e;color:#bdceff}
+[data-theme=dark] .dialog-close{color:#dce6ef}
+[data-theme=dark] .app-dialog::backdrop{background:#0009}
+[data-theme=dark] .leaflet-tile-pane{filter:none}
+[data-theme=dark] .app-dialog .dialog-note{background:#222d3a}
+[data-theme=dark] .dialog-link{color:#bdceff}
+[data-theme=dark] .drive-header{background:transparent}
+[data-theme=dark] .tile-error,[data-theme=dark] .offline-banner{background:#3a3021;color:#f4d399}
+[data-theme=dark] .update-banner{background:#26364e;color:#bdceff}
+@media(max-width:760px){[data-theme=dark] .drive-header{background:var(--paper)}}

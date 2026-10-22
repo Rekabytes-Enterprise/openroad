@@ -40,3 +40,18 @@ describe('Hebrew label visibility', () => {
     expect(render(city, { name_en: 'Kuala Lumpur' })).toBe('Kuala Lumpur');
   });
 });
+
+// Night styling must change colors without changing the underlying map or labels.
+describe('night basemap', () => {
+  it('is valid and preserves every source, layer and label policy', async () => {
+    const { default: night } = await import('../public/map-style-night.json');
+    expect(validateStyleMin(night)).toEqual([]);
+    expect(night.sources).toEqual(style.sources);
+    expect(night.layers.map(layer => layer.id)).toEqual(style.layers.map(layer => layer.id));
+    for (let i = 0; i < style.layers.length; i++) {
+      expect(night.layers[i].layout).toEqual(style.layers[i].layout);
+      expect(night.layers[i].filter).toEqual(style.layers[i].filter);
+    }
+    expect(night.layers.find(layer => layer.id === 'background').paint['background-color']).toBe('#111820');
+  });
+});

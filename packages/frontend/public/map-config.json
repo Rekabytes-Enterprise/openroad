@@ -7,5 +7,6 @@
     "lng": 101.7
   },
   "initialZoom": 14,
-  "styleUrl": "/map-style.json"
+  "styleUrl": "/map-style.json",
+  "nightStyleUrl": "/map-style-night.json"
 }

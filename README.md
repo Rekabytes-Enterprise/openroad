@@ -157,3 +157,13 @@ The dataset currently covers Asia; search results depend on OSM coverage.
 
 Deploy both updated OpenRoad services to enable search. Deploying Photon alone
 or setting `PHOTON_URL` on older OpenRoad images does not enable this feature.
+
+### Automatic day and night appearance
+
+The app calculates local sunrise and sunset from the current session's device
+location using SunCalc. It switches the UI and local map style together, checks
+every 30 seconds and immediately when returning to the app. Location is neither
+sent to another service nor saved for this calculation. Without a location fix,
+the app follows the device light/dark preference. Polar day and polar night are
+handled without assuming fixed hours or the device timezone. Switching map styles
+preserves the current camera, destination and route overlays.

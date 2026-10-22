@@ -7,6 +7,7 @@ import { LocationController } from '../location/location';
 import { parseMapConfig, type Destination, type MapConfig, type Point } from '../map/types';
 import type { MapHandle } from '../map/MapView';
 import { readRouteResponse, type RouteState } from '../routing/route';
+import { useAppearance } from '../appearance/useAppearance';
 import { usePlaceSearch } from '../search/usePlaceSearch';
 import { usePwa } from '@/pwa/usePwa';
 
@@ -31,6 +32,7 @@ export function Explorer() {
   const search = usePlaceSearch(query, searchOpen, pwa.online);
   const fix = locationState.status === 'ready' ? locationState.fix : null;
   const locating = locationState.status === 'requesting';
+  const appearance = useAppearance(fix?.point ?? null);
 
   // Runtime tile configuration is fetched once, independently from GPS permission.
   useEffect(() => {
@@ -119,7 +121,7 @@ export function Explorer() {
       </section>}
     </header>
     <section className="map-region" aria-label="Map">
-      {config ? <MapView ref={map} config={config} route={routeState.kind === 'ready' ? routeState.route : null} destination={destination} fix={fix} follow={follow} onSelect={selectPoint} onDrag={pauseFollow} /> : <div className="map-loading"><Compass size={28} /><span>{configError || 'Loading the map…'}</span>{configError && <button onClick={() => setConfigAttempt(value => value + 1)}>Try again</button>}</div>}
+      {config ? <MapView ref={map} config={config} appearance={appearance} route={routeState.kind === 'ready' ? routeState.route : null} destination={destination} fix={fix} follow={follow} onSelect={selectPoint} onDrag={pauseFollow} /> : <div className="map-loading"><Compass size={28} /><span>{configError || 'Loading the map…'}</span>{configError && <button onClick={() => setConfigAttempt(value => value + 1)}>Try again</button>}</div>}
       {!pwa.online && <div className="offline-banner" role="status"><WifiOff size={16} />You are offline. Unloaded map areas need a connection.</div>}
       {pwa.waiting && <div className="update-banner">An update is ready. <button onClick={() => { location.stop(); pwa.update(); }}>Refresh app</button></div>}
       <div className="map-center-crosshair" aria-hidden="true" />
@@ -138,10 +140,10 @@ export function Explorer() {
       {routeState.kind === 'ready' && <div className="drive-estimate" role="status"><strong>{Math.max(1, Math.round(routeState.route.durationSeconds / 60))} min <span>· {(routeState.route.distanceMeters / 1000).toFixed(1)} km</span></strong><small>Driving estimate · No live traffic or turn guidance</small></div>}
       {routeState.kind === 'error' && <p className="location-error" role="alert">{routeState.message}</p>}
       {routeState.kind !== 'idle' && <button className="text-action" onClick={clearRoute}>{routeState.kind === 'loading' ? 'Cancel route' : 'Clear route'}</button>}
-      <button className="drive-install" onClick={install}>{pwa.installed ? 'App installed' : 'Install OpenRoad'}</button>
+      {!pwa.installed && <button className="drive-install" onClick={install}>Install OpenRoad</button>}
     </section>
 
-    <dialog ref={dialogRef} className="app-dialog" onCancel={() => setDialog(null)} onClick={event => { if (event.target === event.currentTarget) setDialog(null); }} aria-labelledby="dialog-title"><button className="dialog-close" aria-label="Close dialog" onClick={() => setDialog(null)}><X size={20} /></button><span className="dialog-icon">{dialog === 'install' ? <ArrowDownToLine size={26} /> : <Compass size={26} />}</span><h2 id="dialog-title">{dialog === 'install' ? 'Keep OpenRoad on your home screen' : 'A map built on open data'}</h2>{dialog === 'install' ? <><p>On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen.</p><p>On Android or desktop, use your browser menu and choose Install app or Add to Home Screen when available.</p><p className="dialog-note">The app can open offline after your first visit. Map tiles still need a connection.</p></> : <><p>OpenRoad uses OpenStreetMap data, OpenFreeMap vector tiles, Leaflet and MapLibre. Choose a place on the map and use your device location to find your bearings.</p><p>Location is optional. We keep it in this session and do not save a location history. The map provider receives requests for the areas you view.</p><p className="dialog-note">Driving route previews use OSRM. Estimates do not include live traffic. Turn-by-turn guidance is not available.</p><a className="dialog-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap attribution <ExternalLink size={14} /></a><a className="dialog-link" href="/licenses/positron.md" target="_blank" rel="noreferrer">Positron style credits and license <ExternalLink size={14} /></a></>}</dialog>
+    <dialog ref={dialogRef} className="app-dialog" onCancel={() => setDialog(null)} onClick={event => { if (event.target === event.currentTarget) setDialog(null); }} aria-labelledby="dialog-title"><button className="dialog-close" aria-label="Close dialog" onClick={() => setDialog(null)}><X size={20} /></button><span className="dialog-icon">{dialog === 'install' ? <ArrowDownToLine size={26} /> : <Compass size={26} />}</span><h2 id="dialog-title">{dialog === 'install' ? 'Keep OpenRoad on your home screen' : 'A map built on open data'}</h2>{dialog === 'install' ? <><p>On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen.</p><p>On Android or desktop, use your browser menu and choose Install app or Add to Home Screen when available.</p><p className="dialog-note">The app can open offline after your first visit. Map tiles still need a connection.</p></> : <><p>OpenRoad uses OpenStreetMap data, OpenFreeMap vector tiles, Leaflet and MapLibre. Choose a place on the map and use your device location to find your bearings.</p><p>Location is optional. We keep it in this session and do not save a location history. Day and night appearance follows local sunrise and sunset when location is available, otherwise your device appearance. The map provider receives requests for the areas you view.</p><p className="dialog-note">Driving route previews use OSRM. Estimates do not include live traffic. Turn-by-turn guidance is not available.</p><a className="dialog-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap attribution <ExternalLink size={14} /></a><a className="dialog-link" href="/licenses/positron.md" target="_blank" rel="noreferrer">Positron style credits and license <ExternalLink size={14} /></a></>}</dialog>
     <div className="sr-only" aria-live="polite">{destination ? `${destination.name} selected as destination.` : ''}</div>
   </main>;
 }

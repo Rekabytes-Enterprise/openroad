@@ -5,11 +5,13 @@ import L from 'leaflet';
 import '@maplibre/maplibre-gl-leaflet';
 import type { Destination, MapConfig, Point } from './types';
 import type { DrivingRoute } from '../routing/route';
+import type { Appearance } from '../appearance/solar';
 import type { Fix } from '../location/location';
 
 export type MapHandle = { zoom: (delta: number) => void; center: (point: Point) => void; getCenter: () => Point | undefined; retry: () => void };
 type Props = {
   config: MapConfig;
+  appearance: Appearance;
   route: DrivingRoute | null;
   destination: Destination | null;
   fix: Fix | null;
@@ -20,7 +22,10 @@ type Props = {
 
 const pin = L.divIcon({ className: 'destination-marker', html: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>', iconSize: [42, 48], iconAnchor: [21, 48] });
 
-export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, route, destination, fix, follow, onSelect, onDrag }, ref) {
+export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, appearance, route, destination, fix, follow, onSelect, onDrag }, ref) {
+  const styleUrl = appearance === 'dark' ? config.nightStyleUrl : config.styleUrl;
+  const activeStyle = useRef(styleUrl);
+  activeStyle.current = styleUrl;
   const container = useRef<HTMLDivElement>(null);
   const map = useRef<L.Map | null>(null);
   const tiles = useRef<L.MaplibreGL | null>(null);
@@ -35,8 +40,8 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, r
     zoom: delta => { map.current?.setZoom((map.current?.getZoom() ?? 14) + delta); },
     center: point => { map.current?.setView([point.lat, point.lng], Math.max(map.current.getZoom(), 15)); },
     getCenter: () => { const center = map.current?.getCenter(); return center ? { lat: center.lat, lng: center.lng } : undefined; },
-    retry: () => { setTileError(false); tiles.current?.getMaplibreMap().setStyle(config.styleUrl, { diff: false }); },
-  }), [config.styleUrl]);
+    retry: () => { setTileError(false); tiles.current?.getMaplibreMap().setStyle(styleUrl, { diff: false }); },
+  }), [styleUrl]);
 
   // Leaflet owns an external DOM tree and event listeners; dispose it on unmount.
   useEffect(() => {
@@ -44,7 +49,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, r
     const instance = L.map(container.current, { zoomControl: false, attributionControl: false, minZoom: 3, maxZoom: config.maxZoom, zoomAnimation: false });
     instance.setView([config.initialCenter.lat, config.initialCenter.lng], config.initialZoom);
     map.current = instance;
-    tiles.current = L.maplibreGL({ style: config.styleUrl, attributionControl: false }).addTo(instance);
+    tiles.current = L.maplibreGL({ style: activeStyle.current, attributionControl: false }).addTo(instance);
     tiles.current.getMaplibreMap().on('error', () => setTileError(true));
     instance.on('click', (event: L.LeafletMouseEvent) => callbacks.current.onSelect({ lat: event.latlng.lat, lng: event.latlng.lng }));
     instance.on('dragstart', () => callbacks.current.onDrag());
@@ -52,6 +57,14 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, r
     observer.observe(container.current);
     return () => { observer.disconnect(); instance.remove(); map.current = null; tiles.current = null; destinationMarker.current = null; locationMarker.current = null; accuracyCircle.current = null; };
   }, [config]);
+
+  // Change only the basemap style; keep camera, GPS and route overlays intact.
+  useEffect(() => {
+    const renderer = tiles.current?.getMaplibreMap();
+    if (!renderer) return;
+    setTileError(false);
+    renderer.setStyle(styleUrl, { diff: false });
+  }, [styleUrl, config]);
 
   useEffect(() => {
     const instance = map.current;
@@ -87,5 +100,5 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, r
     return () => { line.remove(); start.remove(); };
   }, [route, config]);
 
-  return <><div className="map-canvas" ref={container} aria-label="Interactive map. Use the arrow keys to pan and the Select map center button to choose a destination." />{tileError && <div className="tile-error" role="status">Some map tiles could not load. <button onClick={() => { setTileError(false); tiles.current?.getMaplibreMap().setStyle(config.styleUrl, { diff: false }); }}>Retry</button></div>}</>;
+  return <><div className="map-canvas" ref={container} aria-label="Interactive map. Use the arrow keys to pan and the Select map center button to choose a destination." />{tileError && <div className="tile-error" role="status">Some map tiles could not load. <button onClick={() => { setTileError(false); tiles.current?.getMaplibreMap().setStyle(styleUrl, { diff: false }); }}>Retry</button></div>}</>;
 });

@@ -50,6 +50,9 @@ importers:
       react-dom:
         specifier: 19.2.7
         version: 19.2.7(react@19.2.7)
+      suncalc:
+        specifier: 2.0.2
+        version: 2.0.2
     devDependencies:
       '@maplibre/maplibre-gl-style-spec':
         specifier: ^24.10.0
@@ -945,6 +948,9 @@ packages:
       babel-plugin-macros:
         optional: true
 
+  suncalc@2.0.2:
+    resolution: {integrity: sha512-cedP91TuhxggoERke/jLkUVr/VMUifEMz1OkxfBZezvOFQdk8LSe9CFv7/Ov0Frn2tc2YUs+44oSrXeNEyTyGQ==}
+
   tinybench@2.9.0:
     resolution: {integrity: sha512-0+DUvqWMValLmha6lr4kD8iAMK1HzV0/aKnCtWb9v9641TnP/MFb7Pc2bxoxQjTXAErryXVgUOfv2YqNllqGeg==}
 
@@ -1766,6 +1772,8 @@ snapshots:
     dependencies:
       client-only: 0.0.1
       react: 19.2.7
+
+  suncalc@2.0.2: {}
 
   tinybench@2.9.0: {}
 

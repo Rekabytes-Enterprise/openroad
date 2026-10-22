@@ -1,6 +1,6 @@
 {
   "name": "@openroad/frontend",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -17,7 +17,8 @@
     "maplibre-gl": "^5.24.0",
     "next": "16.2.9",
     "react": "19.2.7",
-    "react-dom": "19.2.7"
+    "react-dom": "19.2.7",
+    "suncalc": "2.0.2"
   },
   "devDependencies": {
     "@maplibre/maplibre-gl-style-spec": "^24.10.0",

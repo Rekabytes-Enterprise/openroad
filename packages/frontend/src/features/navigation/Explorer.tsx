@@ -27,6 +27,7 @@ export function Explorer() {
   const requestRef = useRef<AbortController | null>(null);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const [searchArea, setSearchArea] = useState<Point | null>(null);
   const searchInput = useRef<HTMLInputElement>(null);
   const [follow, setFollow] = useState(true);
   const [dialog, setDialog] = useState<'about' | 'install' | null>(null);
@@ -34,7 +35,7 @@ export function Explorer() {
   const map = useRef<MapHandle>(null);
   const pwa = usePwa();
   const fix = locationState.status === 'ready' ? locationState.fix : location.getLastFix();
-  const search = usePlaceSearch(query, searchOpen, pwa.online, locationState.status === 'ready' && !locationState.stale ? locationState.fix.point : null);
+  const search = usePlaceSearch(query, searchOpen, pwa.online, searchArea);
   const locating = locationState.status === 'requesting';
   const appearance = useAppearance(fix?.point ?? null);
 
@@ -101,6 +102,12 @@ export function Explorer() {
   }, [clearRoute]);
   const pauseFollow = useCallback(() => setFollow(false), []);
 
+  function openSearch() {
+    // One location snapshot per search session. GPS jitter must not cancel a search.
+    if (!searchOpen) setSearchArea(fix?.point ?? null);
+    setSearchOpen(true);
+  }
+
   function closeSearch() {
     searchInput.current?.blur();
     setSearchOpen(false);
@@ -130,12 +137,12 @@ export function Explorer() {
   return <main className="explorer" data-search-open={searchOpen} data-driving={driving}>
     <header className="drive-header">
       <a className="drive-brand" href="/" aria-label="OpenRoad home"><Navigation2 size={22} />openroad.</a>
-      {driving ? <div className="turn-guidance" role="status"><ManeuverIcon step={guidance?.next} active={gpsReady && !offRoute} arrived={guidance?.arrived ?? false} /><div><strong>{!gpsReady ? gpsDiagnostic.title : offRoute ? 'You are off route' : guidance?.arrived ? 'You have arrived' : formatDistance(guidance?.toTurn ?? 0)}</strong><span>{!gpsReady ? gpsDiagnostic.detail : offRoute ? 'Recalculate when safe to do so.' : guidance?.arrived ? destination?.name : instruction(guidance?.next)}</span></div></div> : <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search places</span></label><input ref={searchInput} id="place-search" type="search" inputMode="search" enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={160} autoComplete="off" onKeyDown={event => { if (event.key === 'Escape') closeSearch(); if (event.key === 'Enter') event.currentTarget.blur(); }} placeholder="Where to?" value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? closeSearch() : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>}
+      {driving ? <div className="turn-guidance" role="status"><ManeuverIcon step={guidance?.next} active={gpsReady && !offRoute} arrived={guidance?.arrived ?? false} /><div><strong>{!gpsReady ? gpsDiagnostic.title : offRoute ? 'You are off route' : guidance?.arrived ? 'You have arrived' : formatDistance(guidance?.toTurn ?? 0)}</strong><span>{!gpsReady ? gpsDiagnostic.detail : offRoute ? 'Recalculate when safe to do so.' : guidance?.arrived ? destination?.name : instruction(guidance?.next)}</span></div></div> : <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search places</span></label><input ref={searchInput} id="place-search" type="search" inputMode="search" enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={160} autoComplete="off" onKeyDown={event => { if (event.key === 'Escape') closeSearch(); if (event.key === 'Enter') event.currentTarget.blur(); }} placeholder="Where to?" value={query} onFocus={openSearch} onChange={event => { setQuery(event.target.value); openSearch(); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? closeSearch() : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>}
       {searchOpen && <section className="drive-results" aria-label="Place search results" aria-busy={search.state.kind === 'loading'}>
         <div role="status">{search.state.kind === 'idle' && <p>Type at least 3 characters. Add a city to narrow results.</p>}{search.state.kind === 'loading' && <p>Searching…</p>}{search.state.kind === 'ready' && search.state.places.length === 0 && <p>No places found. Try another name or drop a pin.</p>}</div>
         {search.state.kind === 'error' && <><p role="alert">{search.state.message}</p>{pwa.online && <button onClick={search.retry}>Try again</button>}</>}
-        <div className="search-place-list">{search.state.kind === 'ready' && search.state.places.map(place => <button key={place.id} onClick={() => selectPlace(place)}><MapPin size={18} /><span>{place.name}<small>{place.detail}</small></span><ChevronRight size={18} /></button>)}</div>
-        <p>{fix && locationState.status === 'ready' && !locationState.stale ? 'Within 5 km first · ' : ''}Search by Photon · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></p>
+        <div className="search-place-list">{(search.state.kind === 'ready' || search.state.kind === 'loading') && search.state.places.map(place => <button key={place.id} onClick={() => selectPlace(place)}><MapPin size={18} /><span>{place.name}<small>{place.detail}</small></span><ChevronRight size={18} /></button>)}</div>
+        <p>{searchArea ? 'Within 5 km first · ' : ''}Search by Photon · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></p>
       </section>}
     </header>
     <section className="map-region" aria-label="Map">

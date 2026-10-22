@@ -5,7 +5,7 @@ import { parseSearch, parsePlaces, searchPlaces, SearchError } from '../src/rout
 const feature = { type: 'Feature', properties: { name: 'KLCC', osm_type: 'N', osm_id: 123, city: 'Kuala Lumpur', country: 'Malaysia' }, geometry: { type: 'Point', coordinates: [101.71, 3.15] } };
 test('search rejects short or oversized queries', () => {
   for (const query of ['', ' a ', 'x'.repeat(161), null]) assert.throws(() => parseSearch({ query }), SearchError);
-  assert.equal(parseSearch({ query: '  KLCC  ' }), 'KLCC');
+  assert.deepEqual(parseSearch({ query: '  KLCC  ' }), { query: 'KLCC', proximity: null });
 });
 test('Photon normalization validates coordinates, deduplicates IDs, preserves lat/lng', () => {
   const places = parsePlaces({ type: 'FeatureCollection', features: [feature, feature, { ...feature, geometry: { type: 'Point', coordinates: [999, 3] } }] });
@@ -17,7 +17,7 @@ test('Photon normalization validates coordinates, deduplicates IDs, preserves la
 });
 test('search endpoint validates input and body size before calling provider', async () => {
   const calls: string[] = [];
-  const app = createApp(undefined, async query => { calls.push(query); return parsePlaces({ type: 'FeatureCollection', features: [feature] }); });
+  const app = createApp(undefined, async query => { calls.push(query.query); return parsePlaces({ type: 'FeatureCollection', features: [feature] }); });
   const request = (body: string) => app.request('/places/search', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
   assert.equal((await request('{')).status, 400);
   assert.equal((await request(JSON.stringify({ query: 'ab' }))).status, 400);
@@ -32,14 +32,32 @@ test('adapter encodes query, limits results, and sanitizes provider errors', asy
   const previous = process.env.PHOTON_URL;
   process.env.PHOTON_URL = 'https://po-openroad.techapi.my';
   try {
-    const places = await searchPlaces('KLCC & park', async input => {
+    const places = await searchPlaces({ query: 'KLCC & park', proximity: null }, async input => {
       const url = new URL(String(input));
       assert.equal(url.searchParams.get('q'), 'KLCC & park');
       assert.equal(url.searchParams.get('limit'), '8');
       return Response.json({ type: 'FeatureCollection', features: [feature] });
     });
     assert.equal(places.length, 1);
-    await assert.rejects(searchPlaces('KLCC', async () => new Response('<html>proxy</html>')), error => error instanceof SearchError && error.status === 502);
-    await assert.rejects(searchPlaces('KLCC', async () => { throw new DOMException('secret', 'TimeoutError'); }), error => error instanceof SearchError && error.status === 504 && !error.message.includes('secret'));
+    await assert.rejects(searchPlaces({ query: 'KLCC', proximity: null }, async () => new Response('<html>proxy</html>')), error => error instanceof SearchError && error.status === 502);
+    await assert.rejects(searchPlaces({ query: 'KLCC', proximity: null }, async () => { throw new DOMException('secret', 'TimeoutError'); }), error => error instanceof SearchError && error.status === 504 && !error.message.includes('secret'));
   } finally { if (previous === undefined) delete process.env.PHOTON_URL; else process.env.PHOTON_URL = previous; }
+});
+test('nearby search validates location and puts radius matches before wider results', async () => {
+  assert.throws(() => parseSearch({ query: 'park', proximity: { lat: 91, lng: 0 } }), SearchError);
+  const old = process.env.PHOTON_URL;
+  process.env.PHOTON_URL = 'https://po-openroad.techapi.my';
+  try {
+    const at = (id: number, lat: number) => ({ ...feature, properties: { ...feature.properties, osm_id: id }, geometry: { type: 'Point', coordinates: [0, lat] } });
+    const calls: URL[] = [];
+    const results = await searchPlaces({ query: 'park', proximity: { lat: 0, lng: 0 } }, async input => {
+      const url = new URL(String(input)); calls.push(url);
+      return Response.json({ type: 'FeatureCollection', features: url.searchParams.has('bbox') ? [at(1, .02), at(2, .06)] : [at(3, 1), at(1, .02)] });
+    });
+    assert.deepEqual(results.map(p => p.id), ['osm:N:1', 'osm:N:3']);
+    assert.equal(calls.length, 2);
+    assert.equal(calls[0]?.searchParams.get('lat'), '0');
+    assert.ok(calls[0]?.searchParams.has('bbox'));
+    assert.equal(calls[1]?.searchParams.has('bbox'), false);
+  } finally { if (old === undefined) delete process.env.PHOTON_URL; else process.env.PHOTON_URL = old; }
 });

@@ -75,3 +75,20 @@ html[data-theme=dark],html[data-theme=dark] body{background:var(--paper)}
 [data-theme=dark] .tile-error,[data-theme=dark] .offline-banner{background:#3a3021;color:#f4d399}
 [data-theme=dark] .update-banner{background:#26364e;color:#bdceff}
 @media(max-width:760px){[data-theme=dark] .drive-header{background:var(--paper)}}
+
+/* Search owns the available space while the mobile keyboard is open. */
+.explorer[data-search-open=true] .drive-sheet{display:none}
+.drive-search input::-webkit-search-cancel-button{display:none}
+@media(max-width:760px){
+  .explorer[data-search-open=true] .map-controls{display:none}
+  .explorer[data-search-open=true] .drive-header{max-height:calc(100dvh - 22px - env(safe-area-inset-bottom));display:flex;flex-direction:column}
+  .explorer[data-search-open=true] .drive-brand,.explorer[data-search-open=true] .drive-search{flex-shrink:0}
+  .explorer[data-search-open=true] .drive-results{min-height:0;max-height:none;overflow-y:auto}
+}
+
+/* Three destination rows, then scroll. Short keyboard viewports can show fewer. */
+.search-place-list{max-height:216px;overflow-y:auto;overscroll-behavior:contain;flex-shrink:1;min-height:0}
+.drive-results .search-place-list button{height:72px;padding:10px 8px}
+.search-place-list button span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.search-place-list small{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.explorer[data-search-open=true] .drive-results{display:flex;flex-direction:column;overflow-y:auto}

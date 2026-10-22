@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 const frontend = process.env.FRONTEND_URL ?? 'http://127.0.0.1:4206';
 const backend = process.env.BACKEND_URL ?? 'http://127.0.0.1:4205';
-for (const url of [`${backend}/health`, `${frontend}/api/health`]) {
+for (const url of [`${backend}/health`, `${frontend}/api/health`, `${backend}/api/v1/health`, `${frontend}/api/v1/health`]) {
   const response = await fetch(url);
   assert.equal(response.status, 200, url);
   assert.deepEqual(await response.json(), { status: 'ok', service: 'openroad-backend' });

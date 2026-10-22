@@ -24,13 +24,14 @@ export function Explorer() {
   const requestRef = useRef<AbortController | null>(null);
   const [query, setQuery] = useState('');
   const [searchOpen, setSearchOpen] = useState(false);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [follow, setFollow] = useState(true);
   const [dialog, setDialog] = useState<'about' | 'install' | null>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const map = useRef<MapHandle>(null);
   const pwa = usePwa();
-  const search = usePlaceSearch(query, searchOpen, pwa.online);
   const fix = locationState.status === 'ready' ? locationState.fix : null;
+  const search = usePlaceSearch(query, searchOpen, pwa.online, locationState.status === 'ready' && !locationState.stale ? locationState.fix.point : null);
   const locating = locationState.status === 'requesting';
   const appearance = useAppearance(fix?.point ?? null);
 
@@ -74,7 +75,7 @@ export function Explorer() {
     setFollow(false);
     setRouteState({ kind: 'loading' });
     try {
-      const response = await fetch('/api/routes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ origin: start, destination: destination.point }), signal: controller.signal });
+      const response = await fetch('/api/v1/routes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ origin: start, destination: destination.point }), signal: controller.signal });
       const route = await readRouteResponse(response);
       if (!controller.signal.aborted) setRouteState({ kind: 'ready', route });
     } catch (error) {
@@ -88,10 +89,15 @@ export function Explorer() {
   }, [clearRoute]);
   const pauseFollow = useCallback(() => setFollow(false), []);
 
+  function closeSearch() {
+    searchInput.current?.blur();
+    setSearchOpen(false);
+  }
+
   function selectPlace(place: Destination) {
     clearRoute();
     setDestination(place);
-    setSearchOpen(false);
+    closeSearch();
     setQuery('');
     setFollow(false);
     map.current?.center(place.point);
@@ -109,15 +115,15 @@ export function Explorer() {
     ? locationState.stale ? 'Waiting for a fresh location' : locationState.fix.accuracy > 50 ? 'Location accuracy is low' : 'Location is on'
     : locating ? 'Finding your location…' : locationState.status === 'paused' ? 'Location is paused' : 'Your location is off';
 
-  return <main className="explorer">
+  return <main className="explorer" data-search-open={searchOpen}>
     <header className="drive-header">
       <a className="drive-brand" href="/" aria-label="OpenRoad home"><Navigation2 size={22} />openroad.</a>
-      <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search places</span></label><input id="place-search" maxLength={160} autoComplete="off" onKeyDown={event => { if (event.key === 'Escape') setSearchOpen(false); }} placeholder="Where to?" value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? setSearchOpen(false) : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>
+      <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search places</span></label><input ref={searchInput} id="place-search" type="search" inputMode="search" enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={160} autoComplete="off" onKeyDown={event => { if (event.key === 'Escape') closeSearch(); if (event.key === 'Enter') event.currentTarget.blur(); }} placeholder="Where to?" value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? closeSearch() : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>
       {searchOpen && <section className="drive-results" aria-label="Place search results" aria-busy={search.state.kind === 'loading'}>
         <div role="status">{search.state.kind === 'idle' && <p>Type at least 3 characters. Add a city to narrow results.</p>}{search.state.kind === 'loading' && <p>Searching…</p>}{search.state.kind === 'ready' && search.state.places.length === 0 && <p>No places found. Try another name or drop a pin.</p>}</div>
         {search.state.kind === 'error' && <><p role="alert">{search.state.message}</p>{pwa.online && <button onClick={search.retry}>Try again</button>}</>}
-        {search.state.kind === 'ready' && search.state.places.map(place => <button key={place.id} onClick={() => selectPlace(place)}><MapPin size={18} /><span>{place.name}<small>{place.detail}</small></span><ChevronRight size={18} /></button>)}
-        <p>Search by Photon · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></p>
+        <div className="search-place-list">{search.state.kind === 'ready' && search.state.places.map(place => <button key={place.id} onClick={() => selectPlace(place)}><MapPin size={18} /><span>{place.name}<small>{place.detail}</small></span><ChevronRight size={18} /></button>)}</div>
+        <p>{fix && locationState.status === 'ready' && !locationState.stale ? 'Within 5 km first · ' : ''}Search by Photon · <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">© OpenStreetMap contributors</a></p>
       </section>}
     </header>
     <section className="map-region" aria-label="Map">
@@ -143,7 +149,7 @@ export function Explorer() {
       {!pwa.installed && <button className="drive-install" onClick={install}>Install OpenRoad</button>}
     </section>
 
-    <dialog ref={dialogRef} className="app-dialog" onCancel={() => setDialog(null)} onClick={event => { if (event.target === event.currentTarget) setDialog(null); }} aria-labelledby="dialog-title"><button className="dialog-close" aria-label="Close dialog" onClick={() => setDialog(null)}><X size={20} /></button><span className="dialog-icon">{dialog === 'install' ? <ArrowDownToLine size={26} /> : <Compass size={26} />}</span><h2 id="dialog-title">{dialog === 'install' ? 'Keep OpenRoad on your home screen' : 'A map built on open data'}</h2>{dialog === 'install' ? <><p>On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen.</p><p>On Android or desktop, use your browser menu and choose Install app or Add to Home Screen when available.</p><p className="dialog-note">The app can open offline after your first visit. Map tiles still need a connection.</p></> : <><p>OpenRoad uses OpenStreetMap data, OpenFreeMap vector tiles, Leaflet and MapLibre. Choose a place on the map and use your device location to find your bearings.</p><p>Location is optional. We keep it in this session and do not save a location history. Day and night appearance follows local sunrise and sunset when location is available, otherwise your device appearance. The map provider receives requests for the areas you view.</p><p className="dialog-note">Driving route previews use OSRM. Estimates do not include live traffic. Turn-by-turn guidance is not available.</p><a className="dialog-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap attribution <ExternalLink size={14} /></a><a className="dialog-link" href="/licenses/positron.md" target="_blank" rel="noreferrer">Positron style credits and license <ExternalLink size={14} /></a></>}</dialog>
+    <dialog ref={dialogRef} className="app-dialog" onCancel={() => setDialog(null)} onClick={event => { if (event.target === event.currentTarget) setDialog(null); }} aria-labelledby="dialog-title"><button className="dialog-close" aria-label="Close dialog" onClick={() => setDialog(null)}><X size={20} /></button><span className="dialog-icon">{dialog === 'install' ? <ArrowDownToLine size={26} /> : <Compass size={26} />}</span><h2 id="dialog-title">{dialog === 'install' ? 'Keep OpenRoad on your home screen' : 'A map built on open data'}</h2>{dialog === 'install' ? <><p>On iPhone or iPad, open this page in Safari, tap Share, then Add to Home Screen.</p><p>On Android or desktop, use your browser menu and choose Install app or Add to Home Screen when available.</p><p className="dialog-note">The app can open offline after your first visit. Map tiles still need a connection.</p></> : <><p>OpenRoad uses OpenStreetMap data, OpenFreeMap vector tiles, Leaflet and MapLibre. Choose a place on the map and use your device location to find your bearings.</p><p>Location is optional. Nearby search sends your location to our backend and Photon service to prioritize matches within 5 km. Recent searches are cached in memory for five minutes and cleared when you reload. We do not save a location history. Day and night appearance follows local sunrise and sunset when location is available, otherwise your device appearance. The map provider receives requests for the areas you view.</p><p className="dialog-note">Driving route previews use OSRM. Estimates do not include live traffic. Turn-by-turn guidance is not available.</p><a className="dialog-link" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap attribution <ExternalLink size={14} /></a><a className="dialog-link" href="/licenses/positron.md" target="_blank" rel="noreferrer">Positron style credits and license <ExternalLink size={14} /></a></>}</dialog>
     <div className="sr-only" aria-live="polite">{destination ? `${destination.name} selected as destination.` : ''}</div>
   </main>;
 }

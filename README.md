@@ -142,15 +142,23 @@ The frontend continues to use `BACKEND_URL`; no public Photon variable or rebuil
 Local Docker Compose supplies the Photon URL by default. For direct development,
 export it in the backend process environment before starting the server.
 
-Search flows through `POST /api/places/search` on Next.js to `POST /places/search`
+Search flows through `POST /api/v1/places/search` on Next.js to `POST /api/v1/places/search`
 on Hono, then to the self-hosted Photon `/api` endpoint. The request body is
 `{"query":"KLCC"}`. Queries must contain 3–160 characters. Results contain an OSM
 identifier, name, address detail and named latitude/longitude coordinates.
 The UI waits 300 ms after typing and cancels superseded requests. Selecting a
 result uses the existing destination and route-preview flow.
 
-Search requests and responses are not cached or persisted by OpenRoad. GPS
-coordinates are not sent with searches. Photon and infrastructure access logs
+The request can include `proximity: { lat, lng }` from a fresh location fix.
+Nearby search queries a bounding box, filters matches to a 5 km circle and sorts
+them nearest first, then fills remaining slots with wider matches. Without a
+fresh fix it searches normally. Up to eight matches are returned; the UI shows
+three rows before scrolling, or fewer when the keyboard leaves less space.
+
+The tab caches up to 50 successful searches for five minutes, keyed by normalized
+query and exact search location. Cache hits skip the network. The cache is only
+in memory and clears on reload; no search data or user coordinates are written
+to browser storage. Nearby searches send the location to the backend and Photon. Photon and infrastructure access logs
 are configured separately and may record the upstream query URL. The backend
 limits concurrent provider requests to eight and uses an eight-second timeout.
 The dataset currently covers Asia; search results depend on OSM coverage.
@@ -167,3 +175,10 @@ sent to another service nor saved for this calculation. Without a location fix,
 the app follows the device light/dark preference. Polar day and polar night are
 handled without assuming fixed hours or the device timezone. Switching map styles
 preserves the current camera, destination and route overlays.
+
+### Versioned API for web and Android
+
+New clients use `/api/v1`. Native Android clients call the Hono backend directly;
+the PWA uses the matching Next.js proxy paths. See [API v1](docs/api-v1.md) for
+request/response contracts, error handling, limits and deployment order. Legacy
+paths remain compatible. Deploy the backend before the frontend.

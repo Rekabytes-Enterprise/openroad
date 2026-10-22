@@ -1,6 +1,6 @@
 services:
   backend:
-    image: openroad-backend:${OPENROAD_VERSION:-0.1.4}
+    image: openroad-backend:${OPENROAD_VERSION:-0.1.5}
     build:
       context: .
       dockerfile: packages/backend/Dockerfile
@@ -12,7 +12,7 @@ services:
       OSRM_URL: ${OSRM_URL:-https://router.project-osrm.org}
     restart: unless-stopped
   frontend:
-    image: openroad-frontend:${OPENROAD_VERSION:-0.1.4}
+    image: openroad-frontend:${OPENROAD_VERSION:-0.1.5}
     build:
       context: .
       dockerfile: packages/frontend/Dockerfile

@@ -68,11 +68,15 @@ export const DriveMap = forwardRef<MapHandle, Props>(function DriveMap(props, re
       // Offset moves the geographic center lower on screen without shifting route geometry.
       m.easeTo({ center: [current.fix.point.lng, current.fix.point.lat], zoom: Math.min(config.maxZoom - 1, manualZoom.current ?? drivingZoom(current.heading === null ? null : current.fix.speed, current.turnMeters)), ...(current.heading === null ? {} : { bearing: current.heading }), offset: [anchor[0] - bounds.width / 2, anchor[1] - bounds.height / 2], duration: 0 });
     };
-    const observer = new ResizeObserver(() => { m.resize(); updateCamera.current(); });
+    const observer = new ResizeObserver(() => {
+      m.resize();
+      if (root instanceof HTMLElement && header && container.current) root.style.setProperty('--drive-header-bottom', `${header.getBoundingClientRect().bottom - container.current.getBoundingClientRect().top}px`);
+      updateCamera.current();
+    });
     observer.observe(container.current);
     if (header) observer.observe(header);
     if (sheet) observer.observe(sheet);
-    return () => { observer.disconnect(); vehicle.current?.remove(); vehicle.current = null; updateCamera.current = () => {}; m.remove(); map.current = null; };
+    return () => { observer.disconnect(); if (root instanceof HTMLElement) root.style.removeProperty('--drive-header-bottom'); vehicle.current?.remove(); vehicle.current = null; updateCamera.current = () => {}; m.remove(); map.current = null; };
   }, [config]);
 
   useEffect(() => { const m = map.current; if (m) { setTileError(false); m.setStyle(style); } }, [style]);

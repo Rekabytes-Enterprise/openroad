@@ -3,7 +3,7 @@
 import dynamic from 'next/dynamic';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { ArrowDownToLine, ArrowRight, ChevronRight, Compass, ExternalLink, Info, LocateFixed, MapPin, Minus, Navigation2, Plus, WifiOff, X } from 'lucide-react';
-import { LocationController } from '../location/location';
+import { LocationController, locationDiagnostic } from '../location/location';
 import { parseMapConfig, type Destination, type MapConfig, type Point } from '../map/types';
 import type { MapHandle } from '../map/MapView';
 import { readRouteResponse, type RouteState } from '../routing/route';
@@ -22,7 +22,6 @@ export function Explorer() {
   const [configError, setConfigError] = useState('');
   const [configAttempt, setConfigAttempt] = useState(0);
   const [destination, setDestination] = useState<Destination | null>(null);
-  const [origin, setOrigin] = useState<Destination | null>(null);
   const [driving, setDriving] = useState(false);
   const [routeState, setRouteState] = useState<RouteState>({ kind: 'idle' });
   const requestRef = useRef<AbortController | null>(null);
@@ -34,7 +33,7 @@ export function Explorer() {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const map = useRef<MapHandle>(null);
   const pwa = usePwa();
-  const fix = locationState.status === 'ready' ? locationState.fix : null;
+  const fix = locationState.status === 'ready' ? locationState.fix : location.getLastFix();
   const search = usePlaceSearch(query, searchOpen, pwa.online, locationState.status === 'ready' && !locationState.stale ? locationState.fix.point : null);
   const locating = locationState.status === 'requesting';
   const appearance = useAppearance(fix?.point ?? null);
@@ -43,7 +42,9 @@ export function Explorer() {
   const freshLocation = locationState.status === 'ready' && !locationState.stale;
   const gpsReady = freshLocation && fix !== null && fix.accuracy <= 50;
   const offRoute = !!guidance && guidance.away > 50;
-  useEffect(() => { location.setDriving(driving); return () => location.setDriving(false); }, [location, driving]);
+  const preciseLocation = driving || destination !== null;
+  useEffect(() => { location.setPrecise(preciseLocation); }, [location, preciseLocation]);
+  const gpsDiagnostic = locationDiagnostic(locationState);
 
   // Runtime tile configuration is fetched once, independently from GPS permission.
   useEffect(() => {
@@ -78,9 +79,8 @@ export function Explorer() {
   useEffect(() => () => requestRef.current?.abort(), []);
 
   async function getRoute(fromLocation = false) {
-    const start = (!fromLocation ? origin?.point : null) ?? (locationState.status === 'ready' && !locationState.stale ? locationState.fix.point : null);
+    const start = locationState.status === 'ready' && !locationState.stale ? locationState.fix.point : null;
     if (!start || !destination) return;
-    if (fromLocation) setOrigin(null);
     clearRoute();
     const controller = new AbortController();
     requestRef.current = controller;
@@ -130,7 +130,7 @@ export function Explorer() {
   return <main className="explorer" data-search-open={searchOpen} data-driving={driving}>
     <header className="drive-header">
       <a className="drive-brand" href="/" aria-label="OpenRoad home"><Navigation2 size={22} />openroad.</a>
-      {driving ? <div className="turn-guidance" role="status"><ManeuverIcon step={guidance?.next} active={gpsReady && !offRoute} arrived={guidance?.arrived ?? false} /><div><strong>{!gpsReady ? 'Waiting for accurate GPS' : offRoute ? 'You are off route' : guidance?.arrived ? 'You have arrived' : formatDistance(guidance?.toTurn ?? 0)}</strong><span>{!gpsReady ? 'Guidance resumes with a fresh location.' : offRoute ? 'Recalculate when safe to do so.' : guidance?.arrived ? destination?.name : instruction(guidance?.next)}</span></div></div> : <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search places</span></label><input ref={searchInput} id="place-search" type="search" inputMode="search" enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={160} autoComplete="off" onKeyDown={event => { if (event.key === 'Escape') closeSearch(); if (event.key === 'Enter') event.currentTarget.blur(); }} placeholder="Where to?" value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? closeSearch() : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>}
+      {driving ? <div className="turn-guidance" role="status"><ManeuverIcon step={guidance?.next} active={gpsReady && !offRoute} arrived={guidance?.arrived ?? false} /><div><strong>{!gpsReady ? gpsDiagnostic.title : offRoute ? 'You are off route' : guidance?.arrived ? 'You have arrived' : formatDistance(guidance?.toTurn ?? 0)}</strong><span>{!gpsReady ? gpsDiagnostic.detail : offRoute ? 'Recalculate when safe to do so.' : guidance?.arrived ? destination?.name : instruction(guidance?.next)}</span></div></div> : <div className="drive-search"><label htmlFor="place-search"><MapPin size={20} /><span className="sr-only">Search places</span></label><input ref={searchInput} id="place-search" type="search" inputMode="search" enterKeyHint="search" autoCapitalize="none" autoCorrect="off" spellCheck={false} maxLength={160} autoComplete="off" onKeyDown={event => { if (event.key === 'Escape') closeSearch(); if (event.key === 'Enter') event.currentTarget.blur(); }} placeholder="Where to?" value={query} onFocus={() => setSearchOpen(true)} onChange={event => { setQuery(event.target.value); setSearchOpen(true); }} /><button aria-label={searchOpen ? 'Close search' : 'About OpenRoad'} onClick={() => searchOpen ? closeSearch() : setDialog('about')}>{searchOpen ? <X size={20} /> : <Info size={20} />}</button></div>}
       {searchOpen && <section className="drive-results" aria-label="Place search results" aria-busy={search.state.kind === 'loading'}>
         <div role="status">{search.state.kind === 'idle' && <p>Type at least 3 characters. Add a city to narrow results.</p>}{search.state.kind === 'loading' && <p>Searching…</p>}{search.state.kind === 'ready' && search.state.places.length === 0 && <p>No places found. Try another name or drop a pin.</p>}</div>
         {search.state.kind === 'error' && <><p role="alert">{search.state.message}</p>{pwa.online && <button onClick={search.retry}>Try again</button>}</>}
@@ -153,14 +153,12 @@ export function Explorer() {
 
       <div className="sheet-heading"><div><p className="drive-eyebrow">{routeState.kind === 'ready' ? 'ROUTE PREVIEW' : 'PLAN A DRIVE'}</p><h1>{destination?.name ?? 'Where to?'}</h1></div>{destination && <button aria-label="Clear destination" onClick={() => { clearRoute(); setDestination(null); }}><X size={20} /></button>}</div>
       {!destination && <p className="drive-hint">Search places or tap the map to choose a destination.</p>}
-      <div className="drive-location"><span>{origin ? `From ${origin.name}` : locationLabel}</span></div>
+      <div className="drive-location"><span>{locationLabel}</span></div>
       {locationState.status === 'error' && <p className="location-error" role="alert">{locationState.message}</p>}
-      {origin && <button className="text-action" onClick={() => { clearRoute(); setOrigin(null); }}>Use current location as start</button>}
-      {destination && <><div className="drive-route-actions"><button className="primary-button" disabled={(!origin && (locationState.status !== 'ready' || locationState.stale)) || !pwa.online || routeState.kind === 'loading'} onClick={() => void getRoute()}>{routeState.kind === 'loading' ? 'Calculating…' : 'Preview route'}<ArrowRight size={18} /></button><button className="text-action" onClick={() => { clearRoute(); setOrigin(destination); setDestination(null); }}>Set as start</button></div><p className="drive-disclosure">Route calculation shares both points with OSRM. No trip history saved.</p></>}
+      {destination && routeState.kind !== 'ready' && <><div className="drive-route-actions"><button className="primary-button" disabled={!freshLocation || !pwa.online || routeState.kind === 'loading'} onClick={() => void getRoute()}>{routeState.kind === 'loading' ? 'Calculating…' : 'Preview route'}<ArrowRight size={18} /></button></div><p className="drive-disclosure">Route calculation shares both points with OSRM. No trip history saved.</p></>}
       {routeState.kind === 'ready' && <div className="drive-estimate" role="status"><strong>{Math.max(1, Math.round(routeState.route.durationSeconds / 60))} min <span>· {(routeState.route.distanceMeters / 1000).toFixed(1)} km</span></strong><small>Driving estimate · No live traffic</small></div>}
-      {routeState.kind === 'ready' && <><button className="primary-button start-drive" disabled={!freshLocation} onClick={() => { if (origin) { void getRoute(true); return; } closeSearch(); setDriving(true); setFollow(true); }}>Start drive<Navigation2 size={18} /></button>{!gpsReady && <p className="drive-disclosure">Guidance needs a fresh location accurate to 50 m. Start Drive requests precise GPS.</p>}{origin && <p className="drive-disclosure">Start Drive recalculates from your current location first.</p>}</>}
+      {routeState.kind === 'ready' && <><button className="primary-button start-drive" disabled={!freshLocation} onClick={() => { closeSearch(); setDriving(true); setFollow(true); }}><Navigation2 size={22} strokeWidth={2.25} aria-hidden="true" /><span>Start drive</span></button>{!gpsReady && <p className="drive-disclosure">{gpsDiagnostic.detail}</p>}</>}
       {routeState.kind === 'error' && <p className="location-error" role="alert">{routeState.message}</p>}
-      {routeState.kind !== 'idle' && <button className="text-action" onClick={clearRoute}>{routeState.kind === 'loading' ? 'Cancel route' : 'Clear route'}</button>}
       {!pwa.installed && <button className="drive-install" onClick={install}>Install OpenRoad</button>}
       </>}
     </section>

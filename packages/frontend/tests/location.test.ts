@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LocationController } from '../src/features/location/location';
+import { LocationController, locationDiagnostic } from '../src/features/location/location';
 import { parseMapConfig, validPoint } from '../src/features/map/types';
 import config from '../public/map-config.json';
 
@@ -72,6 +72,48 @@ describe('location lifecycle', () => {
     controller.resume();
     expect(watchPosition).toHaveBeenCalledTimes(1);
     expect(clearWatch).toHaveBeenCalledWith(7);
+  });
+
+  it('warms precise GPS once and keeps the last fix through recovery', () => {
+    const controller = new LocationController(() => ({ watchPosition, clearWatch }));
+    controller.enable();
+    success({ timestamp: Date.now(), coords: { latitude: 3.15, longitude: 101.71, accuracy: 85, altitude: null, altitudeAccuracy: null, heading: null, speed: null, toJSON: () => ({}) }, toJSON: () => ({}) });
+    controller.setPrecise(true);
+    expect(watchPosition).toHaveBeenLastCalledWith(expect.any(Function), expect.any(Function), expect.objectContaining({enableHighAccuracy:true,maximumAge:0}));
+    expect(controller.getSnapshot()).toMatchObject({status:'ready',stale:true,fix:{accuracy:85}});
+    controller.setPrecise(true);
+    expect(watchPosition).toHaveBeenCalledTimes(2);
+    controller.pause();
+    expect(controller.getLastFix()?.accuracy).toBe(85);
+    vi.advanceTimersByTime(200000);
+    expect(watchPosition).toHaveBeenCalledTimes(2);
+    controller.resume();
+    expect(watchPosition).toHaveBeenCalledTimes(3);
+    controller.stop();
+    expect(controller.getLastFix()).toBeNull();
+  });
+
+  it('continues automatic recovery with capped backoff, ignores old callbacks and stops after denial', () => {
+    const controller = new LocationController(() => ({ watchPosition, clearWatch }));
+    controller.enable();
+    const oldSuccess = success;
+    vi.advanceTimersByTime(45000);
+    expect(watchPosition).toHaveBeenCalledTimes(2);
+    oldSuccess({timestamp:Date.now(),coords:{latitude:3,longitude:101,accuracy:10,altitude:null,altitudeAccuracy:null,heading:null,speed:null,toJSON:()=>({})},toJSON:()=>({})});
+    expect(controller.getSnapshot().status).toBe('requesting');
+    vi.advanceTimersByTime(90000 + 180000 + 400000);
+    expect(watchPosition).toHaveBeenCalledTimes(6);
+    failure?.({code:1,message:'Denied',PERMISSION_DENIED:1,POSITION_UNAVAILABLE:2,TIMEOUT:3});
+    vi.advanceTimersByTime(400000);
+    expect(watchPosition).toHaveBeenCalledTimes(6);
+    controller.stop();
+  });
+
+  it('reports accuracy, age and permission errors separately', () => {
+    const fix = {point:{lat:3,lng:101},timestamp:Date.now(),accuracy:85};
+    expect(locationDiagnostic({status:'ready',fix,stale:false,ageSeconds:2}).detail).toContain('±85 m');
+    expect(locationDiagnostic({status:'ready',fix,stale:true,ageSeconds:20}).detail).toContain('20s ago');
+    expect(locationDiagnostic({status:'error',message:'Location access is blocked.'}).detail).toContain('blocked');
   });
 
   it('offers manual selection when browser geolocation is unavailable', () => {

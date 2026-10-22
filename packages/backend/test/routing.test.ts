@@ -48,3 +48,19 @@ test('timeout and upstream errors are sanitized', async () => {
   await assert.rejects(drivingRoute(body, async () => { throw new DOMException('Sensitive URL', 'TimeoutError'); }), error => error instanceof RouteError && error.status === 504 && !error.message.includes('Sensitive'));
   await assert.rejects(drivingRoute(body, async () => new Response('broken', { status: 500 })), error => error instanceof RouteError && error.status === 502);
 });
+test('requests and validates turn maneuvers from OSRM', async () => {
+  const payload = { code: 'Ok', routes: [{ distance: 4000, duration: 600, geometry: { type: 'LineString', coordinates: [[101.6935,3.1486],[101.713,3.155]] }, legs: [{ steps: [{ name: 'Jalan Ampang', distance: 200, duration: 20, maneuver: { type: 'turn', modifier: 'left', location: [101.6935,3.1486], bearing_after: 90 } }] }] }] };
+  const result = await drivingRoute(body, async input => { assert.match(String(input), /steps=true/); return Response.json(payload); });
+  assert.equal(result.steps?.[0].modifier, 'left');
+  assert.deepEqual(result.steps?.[0].point, origin);
+  payload.routes[0].legs[0].steps[0].maneuver.bearing_after = NaN;
+  assert.throws(() => parseRoute(payload), RouteError);
+});
+test('lane normalization preserves order and uses only the maneuver intersection', async () => {
+  const { parseLanes } = await import('../src/routes/routing.js');
+  const lanes = [{ indications: ['left'], valid: true }, { indications: ['left', 'straight'], valid: true }, { indications: ['straight'], valid: false }];
+  assert.deepEqual(parseLanes([{ lanes }]), lanes);
+  assert.equal(parseLanes([{}, { lanes }]), undefined);
+  assert.equal(parseLanes([{ lanes: [{ indications: ['left'], valid: 'true' }] }]), undefined);
+  assert.equal(parseLanes([{ lanes: [] }]), undefined);
+});

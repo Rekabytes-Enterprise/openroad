@@ -16,13 +16,15 @@ type Props = {
   destination: Destination | null;
   fix: Fix | null;
   follow: boolean;
+  driving: boolean;
+  heading: number | null;
   onSelect: (point: Point) => void;
   onDrag: () => void;
 };
 
 const pin = L.divIcon({ className: 'destination-marker', html: '<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>', iconSize: [42, 48], iconAnchor: [21, 48] });
 
-export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, appearance, route, destination, fix, follow, onSelect, onDrag }, ref) {
+export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, appearance, route, destination, fix, follow, driving, heading, onSelect, onDrag }, ref) {
   const styleUrl = appearance === 'dark' ? config.nightStyleUrl : config.styleUrl;
   const activeStyle = useRef(styleUrl);
   activeStyle.current = styleUrl;
@@ -30,7 +32,7 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, a
   const map = useRef<L.Map | null>(null);
   const tiles = useRef<L.MaplibreGL | null>(null);
   const destinationMarker = useRef<L.Marker | null>(null);
-  const locationMarker = useRef<L.CircleMarker | null>(null);
+  const locationMarker = useRef<L.CircleMarker | L.Marker | null>(null);
   const accuracyCircle = useRef<L.Circle | null>(null);
   const callbacks = useRef({ onSelect, onDrag });
   const [tileError, setTileError] = useState(false);
@@ -84,9 +86,9 @@ export const MapView = forwardRef<MapHandle, Props>(function MapView({ config, a
     if (!fix) return;
     const center: L.LatLngTuple = [fix.point.lat, fix.point.lng];
     accuracyCircle.current = L.circle(center, { radius: fix.accuracy, color: '#3666ef', weight: 1, fillOpacity: 0.1, interactive: false }).addTo(instance);
-    locationMarker.current = L.circleMarker(center, { radius: 8, fillColor: '#3666ef', color: '#ffffff', weight: 3, fillOpacity: 1, interactive: false }).addTo(instance);
-    if (follow) instance.panTo(center, { animate: false });
-  }, [fix, follow]);
+    locationMarker.current = driving && heading !== null ? L.marker(center, { interactive: false, icon: L.divIcon({ className: 'driving-marker', iconSize: [40, 40], iconAnchor: [20, 20], html: `<svg viewBox="0 0 40 40" style="transform:rotate(${heading}deg)"><path d="M20 3 L34 34 L20 28 L6 34 Z" fill="#3056ee" stroke="white" stroke-width="3"/></svg>` }) }).addTo(instance) : L.circleMarker(center, { radius: 8, fillColor: '#3666ef', color: '#ffffff', weight: 3, fillOpacity: 1, interactive: false }).addTo(instance);
+    if (follow) { if (driving) instance.setView(center, 17, { animate: false }); else instance.panTo(center, { animate: false }); }
+  }, [fix, follow, driving, heading]);
 
   useEffect(() => {
     const instance = map.current;

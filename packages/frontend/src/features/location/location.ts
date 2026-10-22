@@ -1,6 +1,6 @@
 import type { Point } from '../map/types';
 
-export type Fix = { point: Point; accuracy: number; timestamp: number };
+export type Fix = { point: Point; accuracy: number; timestamp: number; speed?: number | null; heading?: number | null };
 export type LocationState =
   | { status: 'idle' | 'paused' }
   | { status: 'requesting'; message: string }
@@ -17,6 +17,7 @@ export class LocationController {
   private watcher: number | null = null;
   private generation = 0;
   private enabled = false;
+  private driving = false;
   private source: Source | undefined;
   private expiry: ReturnType<typeof setTimeout> | undefined;
 
@@ -52,7 +53,7 @@ export class LocationController {
     try {
       this.watcher = source.watchPosition(position => {
         if (generation !== this.generation) return;
-        const fix = { point: { lat: position.coords.latitude, lng: position.coords.longitude }, accuracy: position.coords.accuracy, timestamp: position.timestamp };
+        const fix = { point: { lat: position.coords.latitude, lng: position.coords.longitude }, accuracy: position.coords.accuracy, timestamp: position.timestamp, speed: typeof position.coords.speed === 'number' && Number.isFinite(position.coords.speed) && position.coords.speed >= 0 ? position.coords.speed : null, heading: typeof position.coords.heading === 'number' && Number.isFinite(position.coords.heading) ? position.coords.heading : null };
         clearTimeout(this.expiry);
         this.update({ status: 'ready', fix, stale: Date.now() - fix.timestamp > 15000 });
         this.expiry = setTimeout(() => {
@@ -74,12 +75,17 @@ export class LocationController {
         this.clear();
         this.enabled = false;
         this.update({ status: 'error', message: 'Location access is blocked. Allow it in your browser settings, or choose a place on the map.' });
-      }, { enableHighAccuracy: false, timeout: 30000, maximumAge: 10000 });
+      }, { enableHighAccuracy: this.driving, timeout: 30000, maximumAge: this.driving ? 0 : 10000 });
     } catch {
       this.clear();
       this.enabled = false;
       this.update({ status: 'error', message: 'Location could not start. Open the app over HTTPS and check your browser permissions.' });
     }
+  };
+  setDriving = (driving: boolean) => {
+    if (this.driving === driving) return;
+    this.driving = driving;
+    if (this.watcher !== null) { this.clear(); this.enable(); }
   };
   pause = () => {
     this.clear();

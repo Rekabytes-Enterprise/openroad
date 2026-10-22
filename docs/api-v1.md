@@ -103,3 +103,9 @@ Nearby search sends user location to the backend and Photon; routing sends both
 endpoints to OSRM. OpenRoad does not persist or log coordinates. Infrastructure
 and provider logs are configured separately. Do not embed server credentials or
 Photon/OSRM configuration in the Android app.
+
+### Visual driving instructions
+
+Route responses may also include `steps`, an array of validated OSRM maneuvers. Each item has `point: { lat, lng }`, `distanceMeters`, `durationSeconds`, `name`, `type`, `modifier`, `bearing`, and `exit`. `exit` is a positive roundabout exit number or `null`. Distances/durations describe the road following that maneuver. `bearing` is degrees clockwise from north after the maneuver. Clients should still accept responses without `steps` for compatibility with older deployments.
+
+Each step can optionally include `lanes: { indications: string[], valid: boolean }[]`, in provider order from left to right. The field comes only from that step's maneuver intersection. Absent lane information is omitted. Consumers must not infer lane count or recommendations from the turn direction alone.

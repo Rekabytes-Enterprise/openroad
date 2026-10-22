@@ -92,3 +92,25 @@ html[data-theme=dark],html[data-theme=dark] body{background:var(--paper)}
 .search-place-list button span{min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .search-place-list small{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .explorer[data-search-open=true] .drive-results{display:flex;flex-direction:column;overflow-y:auto}
+
+/* Compact guidance leaves the road visible during a drive. */
+.turn-guidance{display:flex;align-items:center;gap:18px;background:var(--paper,#fff);border-radius:16px;padding:18px;box-shadow:0 3px 18px #172c3812}
+.turn-guidance>svg{flex-shrink:0;color:var(--blue,#3056ee)}
+.turn-guidance strong{display:block;font-size:24px;line-height:1.2}
+.turn-guidance span{display:block;margin-top:6px;font-size:15px;line-height:1.4}
+.active-drive h1{font-size:24px}.active-drive .drive-hint{margin:8px 0 14px}
+.active-drive{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.active-drive>div{width:100%}
+.start-drive{width:100%;margin:12px 0}
+.explorer[data-driving=true] .select-center,.explorer[data-driving=true] .map-center-crosshair{display:none}
+.driving-marker svg{width:40px;height:40px;filter:drop-shadow(0 2px 4px #18283b55)}
+@media(max-width:760px){.explorer[data-driving=true] .drive-brand{display:none}.explorer[data-driving=true] .drive-sheet{max-height:30dvh}.explorer[data-driving=true] .map-controls{top:calc(145px + env(safe-area-inset-top))}.turn-guidance{box-shadow:none;padding:8px 0}}
+
+.drive-map .driving-marker{width:40px;height:40px}
+.drive-map .heading-unknown svg{display:none}
+.drive-map .heading-unknown{width:18px;height:18px;border:3px solid white;border-radius:50%;background:#3056ee}
+
+.turn-guidance{flex-wrap:wrap}.turn-guidance>.maneuver-icon{width:44px;height:44px;flex:0 0 44px}.turn-guidance>div{flex:1;min-width:0}
+
+.active-drive .drive-speed{margin-left:auto;border:2px solid var(--border,#dfe5ef);border-radius:16px;min-width:70px;padding:8px 12px;text-align:center;background:var(--paper,#fff);color:var(--ink,#172c38)}
+.drive-speed strong{display:block;font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}.drive-speed span{display:block;font-size:12px;margin-top:4px}
+.active-drive>div{width:calc(100% - 90px);order:-1}.active-drive .drive-speed{align-self:flex-start}

@@ -100,7 +100,12 @@ html[data-theme=dark],html[data-theme=dark] body{background:var(--paper)}
 .turn-guidance span{display:block;margin-top:6px;font-size:15px;line-height:1.4}
 .active-drive h1{font-size:24px}.active-drive .drive-hint{margin:8px 0 14px}
 .active-drive{display:flex;flex-wrap:wrap;align-items:center;gap:12px}.active-drive>div{width:100%}
-.start-drive{width:100%;margin:12px 0}
+.primary-button.start-drive{width:100%;height:56px;min-height:56px;flex:none;margin:14px 0 4px;padding:0 24px;gap:12px;border-radius:16px;font-size:16px;font-weight:700;letter-spacing:-.2px;box-shadow:0 4px 10px #2449cc24;transition:background .15s,transform .15s,box-shadow .15s}
+.primary-button.start-drive svg{margin:0;fill:currentColor;stroke:currentColor}
+.primary-button.start-drive:not(:disabled):active{transform:translateY(1px);box-shadow:0 1px 3px #2449cc20}
+.primary-button.start-drive:disabled{opacity:1;background:#e7ebf3;color:#67748b;box-shadow:none;cursor:not-allowed}
+[data-theme=dark] .primary-button.start-drive:disabled{background:#2b3445;color:#a6b3c8}
+@media(prefers-reduced-motion:reduce){.primary-button.start-drive{transition:none}}
 .explorer[data-driving=true] .select-center,.explorer[data-driving=true] .map-center-crosshair{display:none}
 .driving-marker svg{width:40px;height:40px;filter:drop-shadow(0 2px 4px #18283b55)}
 @media(max-width:760px){.explorer[data-driving=true] .drive-brand{display:none}.explorer[data-driving=true] .drive-sheet{max-height:30dvh}.explorer[data-driving=true] .map-controls{top:calc(145px + env(safe-area-inset-top))}.turn-guidance{box-shadow:none;padding:8px 0}}
@@ -114,3 +119,5 @@ html[data-theme=dark],html[data-theme=dark] body{background:var(--paper)}
 .active-drive .drive-speed{margin-left:auto;border:2px solid var(--border,#dfe5ef);border-radius:16px;min-width:70px;padding:8px 12px;text-align:center;background:var(--paper,#fff);color:var(--ink,#172c38)}
 .drive-speed strong{display:block;font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}.drive-speed span{display:block;font-size:12px;margin-top:4px}
 .active-drive>div{width:calc(100% - 90px);order:-1}.active-drive .drive-speed{align-self:flex-start}
+
+@media(max-width:760px){.explorer[data-driving=true] .map-controls{top:calc(var(--drive-header-bottom, 129px) + 16px)}}

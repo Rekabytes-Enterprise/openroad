@@ -4,7 +4,7 @@ Start Drive uses a zoomed 2D MapLibre view with adaptive zoom and the vehicle an
 
 OSRM requests include `steps=true`. The backend validates and normalizes step coordinates, distance, duration, road name, maneuver type/modifier, bearing and roundabout exit into the optional `steps` field. Older route responses remain usable as line previews. Deploy backend before frontend for maneuver instructions.
 
-The location controller requests high-accuracy updates during a drive, restores ordinary location options afterwards, and pauses while the document is hidden. Guidance needs a fresh fix no older than 15 seconds and accuracy of 50 metres or better. Start Drive remains available with a less accurate fresh fix so it can request precise GPS.
+The location controller requests high-accuracy updates when a destination is selected and keeps that watch through preview and driving. Clearing the destination restores ordinary location options. It pauses while the document is hidden. Guidance needs a fresh fix no older than 15 seconds and accuracy of 50 metres or better. Start Drive remains available with a less accurate fresh fix so it can request precise GPS.
 
 `features/navigation/guidance.ts` projects location onto route segments and derives remaining distance, approximate time and the upcoming maneuver. It is pure and tested independently. Explorer owns drive state; MapView owns the Leaflet planning camera; DriveMap owns the MapLibre driving camera and overlays; the backend owns external maneuver validation. Nothing stores the journey or coordinates persistently.
 
@@ -25,3 +25,7 @@ Driving route geometry starts at the projected GPS position on the current road 
 ## Camera tuning
 
 Initial MapLibre zoom targets are 16.5 below 50 km/h or when speed is unknown, 16 from 50 km/h, and 15.5 from 80 km/h. Within 120 metres of the next maneuver, use zoom 17. These are initial tuning choices, not a validated universal standard. Plus/minus overrides the automatic zoom until recenter. Header and sheet measurements determine the usable map area; resize recomputes the anchor. On desktop the camera also clears the left panels. Heading-up and the flat 2D view are retained.
+
+## Location recovery
+
+Retain the last known fix during precision changes, retries, pause/resume and errors. It remains visibly stale until a new reading arrives. Diagnostics distinguish reported accuracy, update age, transient errors and permission failures. Watchdog retries a missing-update watch after 45 seconds, then 90 seconds, then every 180 seconds while enabled and visible; fresh updates reset the delay. Recovery requires no driver interaction. Permission denial stops acquisition, and hiding the app suspends recovery until it is visible again. A current but inaccurate fix does not trigger restarts. Coordinates, age and diagnostics stay in session memory. The 15-second freshness and 50-metre guidance thresholds remain unchanged; recovery does not manufacture fresh coordinates or speed.
